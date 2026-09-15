@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "Easel - The Canvas Dashboard for your New Tab",
+  "version": "0.1.0",
+  "description": "Your Canvas assignments and classes on every new tab.",
+  "chrome_url_overrides": {
+    "newtab": "newtab.html"
+  },
+  "permissions": ["storage", "search", "favicon"],
+  "optional_host_permissions": ["https://*/*"],
+  "icons": {
+    "16": "assets/icon16.png",
+    "48": "assets/icon48.png",
+    "128": "assets/icon128.png"
+  }
+}

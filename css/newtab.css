@@ -1,0 +1,641 @@
+/* ============================================================
+   Easel — new tab layout
+   ============================================================ */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: var(--font-ui);
+  color: var(--ink-on-glass);
+  background: #2b2b33;               /* shows through before the photo paints */
+  -webkit-font-smoothing: antialiased;
+}
+
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  max-width: 100%;
+  filter: brightness(0.6) saturate(1.2);
+  pointer-events: none;
+  user-select: none;
+  z-index: -1;
+}
+
+/* ---------- Glass primitives ---------- */
+.glass,
+.glass-soft {
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: var(--glass-border-w) solid var(--glass-border);
+}
+.glass { background: var(--glass-strong); }
+.glass-soft { background: var(--glass-soft); }
+
+[hidden] { display: none !important; }
+
+/* ============================================================
+   Search bar
+   ============================================================ */
+.searchbar {
+  position: fixed;
+  top: var(--search-top);
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(var(--search-w), 90vw);
+  height: var(--search-h);
+  border-radius: var(--r-pill);
+  display: flex;
+  align-items: center;
+  padding: 0 var(--search-btn-inset) 0 var(--search-pad-l);
+  gap: 12px;
+}
+
+/* An input centres its own single line of text inside its content box, so the
+   box must be the full height and carry no vertical padding of its own —
+   stretching it is what keeps the text on the bar's centre line. */
+.search-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  align-self: stretch;
+  height: auto;
+  margin: 0;
+  padding: 0;
+  line-height: normal;
+  background: none;
+  border: 0;
+  outline: none;
+  font-family: var(--font-display);
+  font-size: var(--fs-search);
+  color: var(--ink-on-glass);
+}
+.search-input::placeholder { color: var(--ink-on-glass-faint); }
+
+.search-btn {
+  flex: none;
+  width: var(--search-btn);
+  height: var(--search-btn);
+  padding: 0;
+  border: 0;
+  margin-right: calc(-5px * var(--ui-scale));
+  background: none;
+  cursor: pointer;
+  border-radius: 50%;
+  transition: transform 120ms ease, opacity 120ms ease;
+}
+.search-btn img { display: block; width: 100%; height: 100%; }
+.search-btn:hover { transform: scale(1.05); }
+.search-btn:active { transform: scale(0.97); }
+
+/* ============================================================
+   Bookmarks
+   ============================================================ */
+/* Fixed like its two neighbours — .searchbar and .container are both out of
+   flow, so there is no column to sit in. The row hugs its tiles and is centred
+   by the translate, which is what keeps it centred as tiles come and go. */
+.bookmarks {
+  position: fixed;
+  top: calc(var(--search-top) + var(--search-h) + var(--bm-gap-top));
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: var(--bm-gap);
+  max-width: 94vw;
+}
+
+/* The wrapper exists so the delete button can hang off the tile's corner
+   without living inside the <a> — a button nested in a link is unclickable. */
+.bookmark {
+  position: relative;
+  flex: none;
+}
+
+.bookmark-link,
+.bookmark-add {
+  display: grid;
+  place-items: center;
+  width: var(--bm-size);
+  height: var(--bm-size);
+  padding: 0;
+  border-radius: var(--r-card);
+  cursor: pointer;
+  overflow: hidden;
+  text-decoration: none;
+  color: var(--ink-on-glass);
+  transition: background 140ms ease, transform 140ms ease;
+}
+.bookmark-link:hover,
+.bookmark-add:hover {
+  background: rgba(255, 255, 255, 0.55);
+  transform: translateY(-1px);
+}
+.bookmark-link:active,
+.bookmark-add:active { transform: translateY(0); }
+
+/* .bookmark-slot is the placeholder the tile renders with for the instant
+   before js/bookmarks.js resolves the favicon, so nothing shifts or flashes. */
+.bookmark-icon,
+.bookmark-slot {
+  display: block;
+  width: var(--bm-icon);
+  height: var(--bm-icon);
+}
+
+/* Shown when the favicon will not load — see faviconUrl() in js/bookmarks.js. */
+.bookmark-mono {
+  font-family: var(--font-display);
+  font-size: var(--fs-bm-mono);
+  line-height: 1;
+  color: var(--ink-on-glass);
+  text-shadow: var(--shadow-text);
+  user-select: none;
+}
+
+.bookmark-add img {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Reveal-on-hover, same idiom as .reset-btn — including the keyboard escape
+   hatch, since the tiles are reachable by Tab from the search field. */
+.bookmark-remove {
+  position: absolute;
+  top: var(--bm-del-top);
+  right: var(--bm-del-right);
+  width: var(--bm-del);
+  height: var(--bm-del);
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 160ms ease, transform 120ms ease;
+}
+.bookmark-remove img { display: block; width: 100%; height: 100%; }
+.bookmark:hover .bookmark-remove,
+.bookmark:focus-within .bookmark-remove,
+.bookmark-remove:focus-visible { opacity: 1; }
+.bookmark-remove:hover { transform: scale(1.08); }
+.bookmark-remove:active { transform: scale(0.96); }
+
+@media (prefers-reduced-motion: reduce) {
+  .bookmark-link, .bookmark-add, .bookmark-remove { transition: none; }
+}
+
+/* ---------- Add-bookmark popover ---------- */
+.bm-popover {
+  position: fixed;
+  top: calc(var(--search-top) + var(--search-h) + var(--bm-gap-top)
+            + var(--bm-size) + var(--bm-gap));
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(calc(340px * var(--ui-scale)), 90vw);
+  padding: calc(18px * var(--ui-scale));
+  border-radius: var(--r-panel);
+  display: flex;
+  flex-direction: column;
+  gap: calc(10px * var(--ui-scale));
+}
+
+.bm-popover-title {
+  font-family: var(--font-display);
+  font-size: var(--fs-card-title);
+  line-height: 1;
+  color: var(--ink-on-glass);
+  text-shadow: var(--shadow-text);
+}
+
+.bm-popover .btn { align-self: flex-end; padding: 0 calc(20px * var(--ui-scale)); }
+
+.bm-error {
+  font-size: var(--fs-meta);
+  line-height: 1.35;
+  color: var(--ink-on-glass-dim);
+  text-shadow: var(--shadow-text);
+}
+
+/* ============================================================
+   Container + panels
+   ============================================================ */
+.container {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(var(--container-w), 94vw);
+  height: var(--container-h);
+  border-radius: var(--r-outer) var(--r-outer) 0 0;
+  border-bottom: 0;
+  padding: var(--container-pad) var(--container-pad) 0;
+  display: flex;
+  gap: var(--panel-gap);
+}
+
+/* Panels run to the bottom edge of the window with square bottom corners —
+   in the design they deliberately bleed past the artboard. */
+.panel {
+  flex: 1 1 0;
+  /* Both are needed: min-width for the side-by-side case, min-height for the
+     stacked one. Without min-height:0 a flex item will not shrink below its
+     content, so the first panel would eat the column and push out the second. */
+  min-width: 0;
+  min-height: 0;
+  border-radius: var(--r-panel) var(--r-panel) 0 0;
+  border-bottom: 0;
+  padding: var(--panel-head-top) var(--panel-pad-x) 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.panel-head {
+  flex: none;
+  height: var(--panel-head-h);
+  margin-bottom: var(--panel-head-gap);
+  padding-left: var(--panel-head-indent);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.panel-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--fs-title);
+  font-weight: 400;
+  line-height: 1;
+  color: var(--ink-on-glass);
+  text-shadow: var(--shadow-text);
+  white-space: nowrap;
+}
+
+/* ---------- Upcoming / Past pill ---------- */
+.pills {
+  flex: none;
+  display: flex;
+  /* stretch, not center: the buttons must fill the padding box exactly.
+     With align-items:center a `height:100%` child resolves against the full
+     track height and overflows its own padding, throwing the text off-centre. */
+  align-items: stretch;
+  gap: var(--pill-gap);
+  height: var(--pill-h);
+  padding: var(--pill-pad) var(--pill-pad);
+  border: var(--pill-border-w) solid var(--pill-border-c);
+  border-radius: var(--r-pill);
+}
+
+.pill {
+  /* Hug the label — equal thirds would clip "Upcoming". */
+  flex: 0 0 auto;
+  /* Centre the text as a flex line box rather than leaning on button defaults
+     or a line-height guess — Maname's ascent/descent are not symmetric. */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-left: var(--pill-pad-x);
+  padding-right: var(--pill-pad-x);
+  padding-top: calc(6.2px * var(--ui-scale));
+  padding-bottom: calc(2px * var(--ui-scale));
+  border: 0;
+  background: none;
+  cursor: pointer;
+  border-radius: var(--r-pill);
+  font-family: var(--font-display);
+  font-size: var(--fs-pill);
+  line-height: 1;
+  color: var(--ink-on-glass);
+  text-shadow: var(--shadow-text);
+  transition: background 140ms ease, color 140ms ease;
+  white-space: nowrap;
+}
+.pill.is-selected {
+  background: var(--pill-selected-bg);
+  color: var(--ink-on-card-dim);
+  text-shadow: none;
+}
+
+/* ============================================================
+   Card lists
+   ============================================================ */
+.cards {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  gap: var(--card-gap);
+  padding-bottom: var(--card-gap);
+  scrollbar-width: none;
+}
+.cards::-webkit-scrollbar { display: none; }
+
+.card {
+  flex: none;
+  /* min-height, not height: the three line boxes plus padding must always fit,
+     and --fs-meta has a px floor that stops shrinking with --ui-scale. */
+  min-height: var(--card-h);
+  border-radius: var(--r-card);
+  background: var(--glass-strong);
+  padding: var(--card-pad-y) var(--card-pad-x);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: calc(3px * var(--ui-scale));
+  text-decoration: none;
+  color: inherit;
+  transition: background 140ms ease, transform 140ms ease;
+}
+a.card:hover {
+  background: rgba(255, 255, 255, 0.55);
+  transform: translateY(-1px);
+}
+a.card:active { transform: translateY(0); }
+
+.card-title {
+  font-family: var(--font-display);
+  font-size: var(--fs-card-title);
+  line-height: 1.25;
+  color: var(--ink-on-card);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card-meta {
+  font-size: var(--fs-meta);
+  line-height: 1.3;
+  color: var(--ink-on-card-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+.card-row .card-title { flex: 1 1 auto; min-width: 0; }
+
+.card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: var(--fs-meta);
+  line-height: 1.3;
+  color: var(--ink-on-card-dim);
+}
+
+.status { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.status .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  flex: none;
+}
+.status--due { color: var(--status-due); }
+.status--done { color: var(--status-done); }
+.status--late { color: var(--status-late); }
+
+.card-pts, .grade {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-on-card-dim);
+}
+.grade { font-size: var(--fs-meta); }
+
+/* ---------- Skeleton / empty / error ---------- */
+.card.is-skeleton {
+  background: var(--glass-strong);
+  position: relative;
+  overflow: hidden;
+}
+.card.is-skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg,
+    transparent, rgba(255, 255, 255, 0.45), transparent);
+  transform: translateX(-100%);
+  animation: shimmer 1.6s ease-in-out infinite;
+}
+@keyframes shimmer { to { transform: translateX(100%); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .card.is-skeleton::after { animation: none; }
+}
+
+.notice {
+  margin: 6px 4px;
+  padding: 14px 2px;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--ink-on-glass-dim);
+  text-shadow: var(--shadow-text);
+}
+.notice strong {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 400;
+  color: var(--ink-on-glass);
+  margin-bottom: 3px;
+}
+.notice button {
+  margin-top: 9px;
+  padding: 6px 14px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--ink-on-glass);
+  background: rgba(255, 255, 255, 0.22);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--r-pill);
+  cursor: pointer;
+}
+.notice button:hover { background: rgba(255, 255, 255, 0.34); }
+
+/* Stale-data strip, shown when the network failed but a cache exists */
+.stale-flag {
+  flex: none;
+  margin-bottom: var(--card-gap);
+  font-size: 12px;
+  color: var(--ink-on-glass-dim);
+  text-shadow: var(--shadow-text);
+}
+
+/* ============================================================
+   Setup
+   ============================================================ */
+.setup {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  overflow-y: auto;
+}
+
+.setup-card {
+  width: min(var(--setup-w), 100%);
+  border-radius: var(--r-panel);
+  padding: var(--setup-pad);
+  display: flex;
+  flex-direction: column;
+}
+
+.setup-title {
+  margin: 0 0 6px;
+  font-family: var(--font-display);
+  font-size: var(--fs-setup-title);
+  font-weight: 400;
+  line-height: 1.1;
+  text-shadow: var(--shadow-text);
+}
+.setup-sub {
+  margin: 0 0 22px;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--ink-on-glass-dim);
+  text-shadow: var(--shadow-text);
+}
+
+.field { display: block; margin-bottom: 16px; }
+.field-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 13px;
+  color: var(--ink-on-glass-dim);
+  text-shadow: var(--shadow-text);
+}
+
+.input {
+  width: 100%;
+  height: var(--input-h);
+  padding: 0 14px;
+  font: inherit;
+  font-size: 15px;
+  color: var(--ink-on-card);
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--r-card);
+  outline: none;
+  transition: background 140ms ease, border-color 140ms ease;
+}
+.input::placeholder { color: rgba(0, 0, 0, 0.4); }
+.input:focus {
+  background: rgba(255, 255, 255, 0.82);
+  border-color: #fff;
+}
+
+.field-hint {
+  display: block;
+  margin-top: 7px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--ink-on-glass-dim);
+  text-shadow: var(--shadow-text);
+}
+.field-hint em { font-style: normal; color: var(--ink-on-glass); }
+.field-hint a { color: var(--ink-on-glass); }
+
+.setup-note {
+  margin: 4px 0 18px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ink-on-glass-faint);
+  text-shadow: var(--shadow-text);
+}
+
+.form-error {
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: #fff;
+  background: rgba(176, 52, 42, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: var(--r-card);
+}
+
+.btn {
+  height: var(--input-h);
+  font-family: var(--font-display);
+  font-size: calc(17px * var(--ui-scale));
+  color: var(--ink-on-card-dim);
+  background: #fff;
+  border: 0;
+  border-radius: var(--r-pill);
+  cursor: pointer;
+  transition: opacity 140ms ease, transform 140ms ease;
+}
+.btn:hover { transform: translateY(-1px); }
+.btn[disabled] { opacity: 0.6; cursor: default; transform: none; }
+
+/* ---------- Disconnect ---------- */
+.reset-btn {
+  position: fixed;
+  top: 16px;
+  right: 18px;
+  padding: 7px 15px;
+  font: inherit;
+  font-size: 12px;
+  color: var(--ink-on-glass);
+  background: rgba(255, 255, 255, 0.28);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--r-pill);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 160ms ease, background 160ms ease;
+}
+.reset-btn:focus-visible,
+body:hover .reset-btn { opacity: 1; }
+.reset-btn:hover { background: rgba(255, 255, 255, 0.3); }
+
+/* ============================================================
+   Narrow windows — stack the two panels
+   ============================================================ */
+@media (max-width: 900px) {
+  .container {
+    flex-direction: column;
+    height: max(66vh, 420px);
+    gap: var(--panel-gap);
+  }
+  .panel { flex: 1 1 0; }
+  /* Only the panel meeting the window bottom should bleed. Stacked above it,
+     a square bottom edge just looks like a clipped card, so close it off. */
+  .panel:not(:last-child) {
+    border-radius: var(--r-panel);
+    border-bottom: var(--glass-border-w) solid var(--glass-border);
+  }
+  /* Retuned as a token rather than `.searchbar { top: ... }` so the bookmark
+     row, which derives its own top from this, follows the bar down. */
+  :root {
+    --search-top: 12vh;
+    --bm-gap-top: calc(36px * var(--ui-scale));
+  }
+}
+
+/* The band between bar and container all but disappears here, so the row has
+   to shrink and the container has to give back the height it now occupies. */
+@media (max-height: 620px) {
+  :root {
+    --search-top: 14px;
+    --bm-gap-top: calc(14px * var(--ui-scale));
+    --bm-size: calc(56px * var(--ui-scale));
+    --bm-gap: calc(16px * var(--ui-scale));
+    --bm-icon: calc(28px * var(--ui-scale));
+    --fs-bm-mono: calc(22px * var(--ui-scale));
+  }
+  .container { height: calc(100vh - 90px - var(--bm-size) - var(--bm-gap-top)); }
+}

@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>New Tab</title>
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/newtab.css">
+</head>
+<body>
+  <img class="backdrop" src="assets/bg.png" alt="">
+
+  <!-- ───────────────────────── Setup ───────────────────────── -->
+  <section id="setup" class="setup" hidden>
+    <form class="setup-card glass" id="setup-form" novalidate>
+      <h1 class="setup-title">Connect Canvas</h1>
+      <p class="setup-sub">Easel reads your assignments and classes straight from your school's Canvas.</p>
+
+      <label class="field">
+        <span class="field-label">Canvas web address</span>
+        <input class="input" id="canvas-url" type="text" inputmode="url" spellcheck="false"
+               autocomplete="off" placeholder="yourschool.instructure.com" required>
+      </label>
+
+      <label class="field">
+        <span class="field-label">Access token</span>
+        <input class="input" id="canvas-token" type="password" spellcheck="false"
+               autocomplete="off" placeholder="Paste your token" required>
+        <span class="field-hint">
+          In Canvas go to <em>Account → Settings</em>, then
+          <em>+ New Access Token</em>. <a id="token-link" href="#" target="_blank" rel="noreferrer" hidden>Open that page</a>
+        </span>
+      </label>
+
+      <p class="setup-note">
+        Your token is stored only on this computer, in this browser's extension storage.
+        It is not encrypted and it is never sent anywhere except your Canvas server.
+        You can revoke it at any time from Canvas settings.
+      </p>
+
+      <p class="form-error" id="setup-error" hidden></p>
+
+      <button class="btn" id="connect-btn" type="submit">Connect</button>
+    </form>
+  </section>
+
+  <!-- ─────────────────────── Dashboard ─────────────────────── -->
+  <section id="dashboard" class="dashboard" hidden>
+    <form class="searchbar glass" id="search-form" role="search">
+      <input class="search-input" id="search-input" type="text" spellcheck="false"
+             autocomplete="off" aria-label="Search the web">
+      <button class="search-btn" id="search-btn" type="submit" aria-label="Search">
+        <img src="assets/search.svg" alt="">
+      </button>
+    </form>
+
+    <!-- Tiles are built by js/bookmarks.js -->
+    <div class="bookmarks" id="bookmarks"></div>
+
+    <div class="container glass">
+      <!-- Assignments -->
+      <section class="panel glass-soft" aria-labelledby="assignments-heading">
+        <header class="panel-head">
+          <h2 class="panel-title" id="assignments-heading">Assignments</h2>
+          <div class="pills" role="tablist" aria-label="Assignment range">
+            <button class="pill is-selected" id="pill-upcoming" role="tab"
+                    aria-selected="true" data-bucket="future" type="button">Upcoming</button>
+            <button class="pill" id="pill-past" role="tab"
+                    aria-selected="false" data-bucket="past" type="button">Past</button>
+          </div>
+        </header>
+        <div class="cards" id="assignments-list" role="tabpanel"></div>
+      </section>
+
+      <!-- Classes -->
+      <section class="panel glass-soft" aria-labelledby="classes-heading">
+        <header class="panel-head">
+          <h2 class="panel-title" id="classes-heading">Classes</h2>
+        </header>
+        <div class="cards" id="classes-list"></div>
+      </section>
+    </div>
+
+    <button class="reset-btn" id="reset-btn" type="button" title="Disconnect Canvas">Disconnect</button>
+  </section>
+
+  <script>
+  /* ---- throwaway preview harness: stubs chrome.* and fetch ---- */
+  const DAY = 86400000, now = Date.now();
+  const iso = (d) => new Date(now + d * DAY).toISOString();
+
+  const COURSES = [
+    { id: 1, name: 'Rhetoric and Composition', course_code: 'ENGL 210',
+      enrollments: [{ computed_current_score: 92.4 }] },
+    { id: 2, name: 'Linear Algebra', course_code: 'MATH 221',
+      enrollments: [{ computed_current_score: 88 }] },
+    { id: 3, name: 'Organic Chemistry II', course_code: 'CHEM 342',
+      enrollments: [{ computed_current_score: 79.6 }] },
+    { id: 4, name: 'Introduction to Cognitive Science', course_code: 'COGS 101',
+      enrollments: [{ computed_current_grade: 'A-' }] },
+    { id: 5, name: 'Modern Political Thought', course_code: 'POLI 318',
+      enrollments: [{}] },
+  ];
+
+  const FUTURE = {
+    1: [
+      { id: 11, name: 'Essay Draft 2', due_at: iso(1.4), points_possible: 50,
+        submission_types: ['online_upload'], submission: { workflow_state: 'unsubmitted' } },
+      { id: 12, name: 'Peer Review Response', due_at: iso(5.2), points_possible: 15,
+        submission_types: ['online_text_entry'], submission: { workflow_state: 'submitted', submitted_at: iso(-0.2) } },
+    ],
+    2: [
+      { id: 21, name: 'Problem Set 7 — Eigenvalues and Diagonalization', due_at: iso(2.1),
+        points_possible: 40, submission_types: ['online_upload'], submission: { workflow_state: 'unsubmitted' } },
+      { id: 22, name: 'Midterm 2', due_at: iso(12.5), points_possible: 100,
+        submission_types: ['on_paper'], submission: { workflow_state: 'unsubmitted' } },
+    ],
+    3: [
+      { id: 31, name: 'Lab Report: Aldol Condensation', due_at: iso(3.6), points_possible: 75,
+        submission_types: ['online_upload'], submission: { workflow_state: 'unsubmitted' } },
+    ],
+    4: [
+      { id: 41, name: 'Reading Response — Chapter 9', due_at: null, points_possible: 10,
+        submission_types: ['online_text_entry'], submission: { workflow_state: 'unsubmitted' } },
+    ],
+    5: [
+      { id: 51, name: 'Seminar Participation', due_at: iso(8), points_possible: 20,
+        submission_types: ['none'], submission: { workflow_state: 'unsubmitted' } },
+    ],
+  };
+
+  const PAST = {
+    1: [{ id: 13, name: 'Essay Draft 1', due_at: iso(-4), points_possible: 50,
+          submission_types: ['online_upload'], submission: { workflow_state: 'graded', score: 44, submitted_at: iso(-4.2) } }],
+    2: [{ id: 23, name: 'Problem Set 6', due_at: iso(-2), points_possible: 40,
+          submission_types: ['online_upload'], submission: { workflow_state: 'unsubmitted' } }],
+    3: [{ id: 32, name: 'Quiz 4', due_at: iso(-9), points_possible: 25,
+          submission_types: ['online_quiz'], submission: { workflow_state: 'graded', score: 23.5, submitted_at: iso(-9) } }],
+  };
+
+  /* An in-memory storage bag, so bookmarks can actually be added and removed
+     here. It resets on reload — the real thing is chrome.storage.local. */
+  const BAG = new URLSearchParams(location.search).get('view') === 'setup' ? {}
+    : { settings: { origin: 'https://demo.instructure.com', token: 'stub' } };
+
+  window.chrome = {
+    storage: { local: {
+      async get(k) {
+        if (k === null || k === undefined) return { ...BAG };
+        const keys = Array.isArray(k) ? k : [k];
+        return Object.fromEntries(
+          keys.filter((key) => key in BAG).map((key) => [key, BAG[key]]));
+      },
+      async set(obj) { Object.assign(BAG, obj); },
+      async remove(k) { for (const key of [].concat(k)) delete BAG[key]; },
+      async clear() { for (const key of Object.keys(BAG)) delete BAG[key]; },
+    }},
+    permissions: { async contains() { return true; }, async request() { return true; } },
+    search: { query() {} },
+    /* No getURL: js/bookmarks.js then falls back to the letter monogram,
+       since there is no extension origin to serve _favicon/ from. */
+    runtime: {},
+  };
+
+  window.fetch = async (url) => {
+    const u = new URL(url);
+    const mk = (body) => new Response(JSON.stringify(body), {
+      status: 200, headers: { 'Content-Type': 'application/json' } });
+    if (u.pathname === '/api/v1/courses') return mk(COURSES);
+    const m = u.pathname.match(/^\/api\/v1\/courses\/(\d+)\/assignments$/);
+    if (m) {
+      const table = u.searchParams.get('bucket') === 'past' ? PAST : FUTURE;
+      return mk(table[m[1]] ?? []);
+    }
+    return mk([]);
+  };
+
+  if (new URLSearchParams(location.search).has('text')) {
+    addEventListener('DOMContentLoaded', () => setTimeout(() => {
+      const i = document.getElementById('search-input');   /* searchtext */
+      if (i) i.value = 'Hxplg Wy';
+    }, 400));
+  }
+  if (new URLSearchParams(location.search).get('view') === 'past') {
+    addEventListener('DOMContentLoaded', () =>
+      setTimeout(() => document.getElementById('pill-past')?.click(), 600));
+  }
+  </script>
+  <script type="module" src="js/newtab.js"></script>
+</body>
+</html>

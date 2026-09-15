@@ -1,0 +1,147 @@
+/* ============================================================
+   Design tokens — measured from Figma
+   file AuYFKOPNzKwZ9BERTh0L16, node 1:4 (1512 x 982)
+
+   Every metric is the literal Figma measurement multiplied by
+   --ui-scale, so the whole interface resizes from one number.
+   The Figma frame is a full 1512x982 display; a real browser
+   window is smaller, so the design reads oversized at 1:1.
+   ============================================================ */
+
+/* Maname ships broken vertical metrics: ascent 1.2em and descent *zero*, so its
+   whole line box sits above the baseline. Anything the browser centres — input
+   text, a flex line box, a button label — then lands ~0.38em too low.
+   Measured ink is 0.655em above the baseline and 0.206em below, so its centre
+   is 0.2245em up; these overrides rebuild a 1em box around exactly that point
+   ((0.7245 - 0.2755) / 2 = 0.2245). Fixes centring everywhere at once.
+   Verify with: canvas measureText().fontBoundingBoxAscent/Descent. */
+@font-face {
+  font-family: 'Maname';
+  src: url('../assets/maname-latin.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  ascent-override: 72.45%;
+  descent-override: 27.55%;
+  line-gap-override: 0%;
+}
+
+:root {
+  /* The one dial. 1 = exact Figma size. */
+  --ui-scale: 0.78;
+
+  /* ---------- Type ----------
+     Maname ships Regular 400 only — there is no bold. Hierarchy
+     comes from size and opacity. Display face is used for headings,
+     pills and card titles; dense meta lines use the system UI face
+     because Maname's low-contrast forms get hard to read when small.
+     Set --font-ui to var(--font-display) to go all-Maname.          */
+  --font-display: 'Maname', Georgia, 'Times New Roman', serif;
+  --font-ui: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+
+  --fs-title: calc(24px * var(--ui-scale));
+  --fs-pill: calc(16px * var(--ui-scale));
+  --fs-card-title: calc(16px * var(--ui-scale));
+  --fs-search: calc(22px * var(--ui-scale));
+  /* Floored: below ~11px this stops being comfortably readable. */
+  --fs-meta: max(11px, calc(13px * var(--ui-scale)));
+
+  /* ---------- Glass ---------- */
+  --glass-strong: rgba(255, 255, 255, 0.4);   /* container, search bar, cards */
+  --glass-soft: rgba(255, 255, 255, 0.2);     /* the two inner panels */
+  --glass-border: rgba(255, 255, 255, 0.5);
+  --glass-border-w: 2.5px;
+  --glass-blur: calc(30px * var(--ui-scale));
+
+  /* ---------- Radii ---------- */
+  --r-outer: calc(50px * var(--ui-scale));
+  --r-panel: calc(35px * var(--ui-scale));
+  --r-card: calc(10px * var(--ui-scale));
+  --r-pill: 100px;                            /* "fully round", not a measure */
+
+  /* ---------- Metrics ---------- */
+  --search-w: calc(647.38px * var(--ui-scale));
+  --search-h: calc(82.9px * var(--ui-scale));
+  --search-top: 17.74vh;                      /* 174.18 / 982 */
+  --search-btn: calc(64.62px * var(--ui-scale));
+  --search-btn-inset: calc(9.14px * var(--ui-scale));
+  --search-pad-l: calc(34px * var(--ui-scale));
+
+  /* ---------- Bookmarks ----------
+     The row of tiles between the search bar and the container. Its top is
+     derived from the search bar rather than a raw vh so the two stay locked
+     together if --search-top ever moves again. */
+  --bm-size: calc(90px * var(--ui-scale));
+  --bm-gap: calc(29.46px * var(--ui-scale));
+  --bm-gap-top: calc(68.65px * var(--ui-scale));
+  --bm-icon: calc(44px * var(--ui-scale));
+  --bm-del: calc(29.09px * var(--ui-scale));
+  /* The delete button hangs off the tile's top-right corner, as in the design. */
+  --bm-del-top: calc(-10.36px * var(--ui-scale));
+  --bm-del-right: calc(-11.7px * var(--ui-scale));
+  --fs-bm-mono: calc(34px * var(--ui-scale));
+
+  --container-w: calc(942px * var(--ui-scale));
+  /* NOT scaled: this is a viewport proportion (497.63 / 982), and it sets how
+     far down the panels start. Scaling it dropped them ~11vh and left a dead
+     band under the search bar. Smaller cards simply mean more fit. */
+  --container-h: max(50.68vh, 300px);
+  --container-pad: calc(17.14px * var(--ui-scale));
+  --panel-gap: calc(25.11px * var(--ui-scale));
+
+  --panel-pad-x: calc(19.45px * var(--ui-scale));
+  --panel-head-top: calc(14.13px * var(--ui-scale));
+  --panel-head-h: calc(47.2px * var(--ui-scale));
+  --panel-head-gap: calc(18.6px * var(--ui-scale));
+  --panel-head-indent: calc(5.88px * var(--ui-scale));
+
+  /* Trimmed from the design's 96.58 — three short lines never needed
+     that much room. Must stay >= the sum of the three line boxes
+     plus --card-pad-y twice; see .card in newtab.css. */
+  --card-h: calc(84px * var(--ui-scale));
+  --card-gap: calc(14px * var(--ui-scale));
+  --card-pad-y: calc(9px * var(--ui-scale));
+  --card-pad-x: calc(15px * var(--ui-scale));
+
+  /* The design's pills are content-width, not halves of the track
+     (Upcoming 101.55, Past 34.02) — so no --pill-w. Forcing equal widths
+     makes "Upcoming" overflow its capsule as soon as the scale drops. */
+  --pill-h: calc(47.2px * var(--ui-scale));
+  --pill-pad: calc(5.8px * var(--ui-scale));
+  --pill-pad-x: calc(14px * var(--ui-scale));
+  --pill-gap: calc(6px * var(--ui-scale));
+  --pill-border-w: 2px;
+
+  /* ---------- Setup card ---------- */
+  --setup-w: calc(460px * var(--ui-scale));
+  --setup-pad: calc(34px * var(--ui-scale));
+  --fs-setup-title: calc(30px * var(--ui-scale));
+  --input-h: calc(44px * var(--ui-scale));
+
+  /* ---------- Ink ----------
+     THIS BLOCK IS BACKGROUND-DEPENDENT — the one thing to change if you swap
+     assets/bg.png for a dark photo.
+
+     Every glass surface is white-tinted (container 0.4, panel a further 0.2,
+     so the panel face is ~52% white). Over a light photo that face lands near
+     white, where white text is invisible; dark ink reads at roughly 12:1.
+     Over a *dark* photo the same face is mid-grey and the reverse is true —
+     then swap the four values below for their white equivalents:
+       --ink-on-glass: #fff;  --ink-on-glass-dim: rgba(255,255,255,.72);
+       --ink-on-glass-faint: rgba(255,255,255,.6);
+       --pill-border-c: #fff; --shadow-text: 0 1px 3px rgba(0,0,0,.35);
+     The card ink never changes: cards are opaque enough to stay light. */
+  --ink-on-glass: rgba(0, 0, 0, 0.82);
+  --ink-on-glass-dim: rgba(0, 0, 0, 0.62);
+  --ink-on-glass-faint: rgba(0, 0, 0, 0.45);
+  --pill-border-c: rgba(255, 255, 255, 0.60);
+  --pill-selected-bg: #fff;
+  --ink-on-card: rgba(0, 0, 0, 0.82);
+  --ink-on-card-dim: rgba(0, 0, 0, 0.6);
+
+  --status-due: #b4770d;      /* amber — not submitted */
+  --status-done: #1f7a4d;     /* green — submitted or graded */
+  --status-late: #b0342a;     /* red   — overdue */
+
+  --shadow-text: none;   /* a dark halo under dark ink just smudges it */
+}
