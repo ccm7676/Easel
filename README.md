@@ -35,7 +35,9 @@ js/newtab.js       entry point, routing, rendering
 js/canvas.js       Canvas REST client: pagination, typed errors
 js/store.js        chrome.storage.local wrapper (settings + cache)
 js/setup.js        onboarding and the runtime permission request
+js/schedule.js     the week view, and which class is on now or next
 js/search.js       search bar
+js/bookmarks.js    the tile row and its add dialog
 preview.dev.html   local design harness — see below. Not needed at runtime.
 ```
 
@@ -59,6 +61,44 @@ design's blank cards double as loading skeletons.
 
 Assignments are fetched one request per active course with `Promise.allSettled`,
 so a single unreadable course can't blank the panel.
+
+### The schedule
+
+Canvas can't be trusted for meeting times — they're inconsistently filled in, and
+classes you take outside Canvas aren't there at all — so the week is user-authored
+and stored locally, exactly as bookmarks are. Press **Schedule** in the Classes
+panel and the two panels slide left to reveal it. Both survive Disconnect: they're
+the user's own work, not Canvas data.
+
+An entry is:
+
+```js
+{ id, day: 0..6, courseId: number|null, name, start: 'HH:MM', end: 'HH:MM' }
+```
+
+- **Day 0 is Monday**, matching the design's row order; JS weeks start on Sunday,
+  so `weekday()` in `schedule.js` rotates.
+- **Times are local wall-clock, 24-hour, with no date.** They sort as plain
+  strings and can't drift across a timezone change or a DST boundary.
+- **`name` is a snapshot, not a lookup.** It lets the week paint before courses
+  have loaded and keeps an entry readable after its course disappears;
+  `courseId` only says which Classes card to hoist, and may safely go stale.
+
+All seven days render. The container is sized for the five the design draws, so
+Saturday and Sunday sit below the fold — deliberate: it keeps every row at the
+proportion drawn rather than squeezing two more into the same height.
+
+`currentClass()` picks the entry to bracket: one in progress reads **Now**, else
+the next one coming up reads **Next**, scanning forward through the week and
+wrapping around. That card is hoisted to the top of the Classes list rather than
+copied, so the panel never lists the same course twice, and its meta line gives
+the hour instead of repeating the course code. A 30-second tick re-renders only
+when the answer actually changes, so a pinned tab isn't rebuilding the panel
+twice a minute.
+
+New users land in the week view straight after connecting Canvas, with a one-time
+line explaining what to add, why, and how to leave. An empty schedule is a fine
+outcome — skipping is just pressing Done.
 
 ### The `bucket` gotcha
 
@@ -109,6 +149,23 @@ dashboard. Don't "fix" this back.
   composition.
 - Panels deliberately bleed off the bottom of the window with square bottom
   corners. Stacked on narrow windows, only the lowest panel keeps that.
+- **The Now/Next outline is a `<fieldset>`.** A `<legend>` natively cuts a gap in
+  its parent's border, which is exactly the stroke Figma node `24:104` draws by
+  hand — and unlike a pseudo-element painted in the background colour, it stays
+  correct over whatever the photo happens to be behind it. Its one UA default
+  worth overriding is `min-inline-size`, which defaults to `min-content` and
+  would stop the bracket ever narrowing with the panel.
+- **The container is a one-cell grid holding two faces**, the panels and the
+  week, which slide past each other. `overflow: hidden` is what makes the
+  outgoing one vanish at the glass edge instead of sliding out over the photo,
+  and `inert` (set in `newtab.js`) keeps whichever is off to the side out of the
+  tab order while it stays painted for the length of the transition.
+- **The way out of the week view is ours, not the design's** — the Schedule
+  screen draws none. It floats in the empty band above the container; inside the
+  week it would land on Monday's row and collide with a fourth class.
+- `--container-h` is set in the media queries rather than `.container { height }`
+  so that the pill above the container, which derives its own `bottom` from it,
+  stays glued to the container's top edge at every size.
 
 ---
 
@@ -122,6 +179,8 @@ extension, no token and no network:
 open preview.dev.html            # dashboard
 open 'preview.dev.html?view=setup'
 open 'preview.dev.html?view=past'
+open 'preview.dev.html?view=schedule'   # the week view
+open 'preview.dev.html?view=onboard'    # the one-time schedule prompt
 ```
 
 It's a dev tool only. Delete it before packaging for the Web Store.

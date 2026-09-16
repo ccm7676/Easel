@@ -90,7 +90,8 @@
      Two of them are already net of the 3px border: the card is border-box, so
      padding is measured from inside the stroke while Figma measures from
      outside it (--bmd-pad-t is the design's 24.31 - 3, --bmd-pad-b its 17.29 - 3).
-     The same subtraction is baked into --bmd-pad-x and the bar's two paddings. */
+     The same subtraction is baked into --bmd-pad-x and the bar's two paddings.
+     The add-class dialog reuses every one of these; see --cd-w below. */
   --bmd-w: calc(393.903px * var(--ui-scale));
   /* Sits under the tile row, tighter than the gap between tiles. */
   --bmd-gap-top: calc(11.01px * var(--ui-scale));
@@ -137,6 +138,71 @@
   --card-pad-y: calc(9px * var(--ui-scale));
   --card-pad-x: calc(15px * var(--ui-scale));
 
+  /* ---------- Now / Next bracket ----------
+     Figma node 24:102 — the outline around the class that is happening now, or
+     is up next. It is exactly one card wide (401.615, the same as .card inside
+     --panel-pad-x), so it takes that card's place in the list and pads around
+     it rather than sitting beside it.
+
+     Drawn as a <fieldset>, because a <legend> natively interrupts its parent's
+     border — that gap is what node 24:104 draws by hand, and unlike a
+     pseudo-element painted in the background colour it stays right over any
+     backdrop. */
+  --now-r: calc(20px * var(--ui-scale));
+  --now-pad: calc(10.37px * var(--ui-scale));
+  /* Unscaled, like --glass-border-w and --pill-border-w: a hairline that
+     shrinks with the scale stops resolving to whole device pixels. */
+  --now-border-w: 3px;
+  --now-legend-indent: calc(20px * var(--ui-scale));
+  --now-legend-pad-x: calc(11px * var(--ui-scale));
+
+  /* ---------- Week view ----------
+     Figma node 48:223 (Schedule screen). The rows live inside the same glass
+     container as the panels, at the same --container-pad: the design's own
+     insets are 16.89 left and 20.83 right, asymmetric by hand, so the existing
+     symmetric token stands in for both.
+
+     Seven rows are rendered into a container the design sized for five.
+     Saturday and Sunday fall below the fold and are reached by scrolling,
+     which is deliberate — it keeps every row at the proportion drawn rather
+     than squeezing two more into the same height. */
+  --sched-row-h: calc(90.384px * var(--ui-scale));
+  --sched-row-gap: calc(12.235px * var(--ui-scale));
+  --sched-row-r: calc(20px * var(--ui-scale));
+  /* Where the chips begin, measured from the row's left edge; the day name is
+     indented into the column ahead of them. */
+  --sched-day-col: calc(142.06px * var(--ui-scale));
+  --sched-day-indent: calc(25.61px * var(--ui-scale));
+
+  --sched-chip-w: calc(190.125px * var(--ui-scale));
+  --sched-chip-h: calc(61.562px * var(--ui-scale));
+  --sched-chip-gap: calc(12.752px * var(--ui-scale));
+  --sched-chip-pad-x: calc(11.5px * var(--ui-scale));
+  /* The ink box of assets/plus-24.svg, cap overhang included. */
+  --sched-plus: calc(28.307px * var(--ui-scale));
+
+  /* The trash button hangs off a chip's top-right corner, as it does off a
+     bookmark tile — scaled to the 61.56 chip, not the 90 tile. */
+  --sched-del: calc(21px * var(--ui-scale));
+  --sched-del-top: calc(-7.5px * var(--ui-scale));
+  --sched-del-right: calc(-8.5px * var(--ui-scale));
+  /* The strip the chips sit in scrolls sideways, so that overhang has to fall
+     inside its scrollport or it is clipped. There is room: a 61.56 chip in a
+     90.38 row leaves 14.4 above and below. */
+  --sched-strip-pad: calc(10px * var(--ui-scale));
+
+  /* The band above the container, holding the way out of the week view and —
+     once, during onboarding — the line explaining it. */
+  --week-bar-gap: calc(12px * var(--ui-scale));
+
+  /* ---------- Add-class dialog ----------
+     The design does not draw one, so it is built from the add-bookmark
+     dialog's parts and measurements (--bmd-* above); only the width is its
+     own, since it carries a row of three fields rather than one. */
+  --cd-w: calc(460px * var(--ui-scale));
+  --cd-field-h: calc(46px * var(--ui-scale));
+  --cd-gap: calc(9px * var(--ui-scale));
+
   /* The design's pills are content-width, not halves of the track
      (Upcoming 101.55, Past 34.02) — so no --pill-w. Forcing equal widths
      makes "Upcoming" overflow its capsule as soon as the scale drops. */
@@ -168,6 +234,11 @@
   --ink-on-glass: rgba(0, 0, 0, 0.82);
   --ink-on-glass-dim: rgba(0, 0, 0, 0.62);
   --ink-on-glass-faint: rgba(0, 0, 0, 0.45);
+  /* The Now/Next stroke is drawn on the panel, so it follows the glass ink;
+     the design's #434343 is that same family. A class chip's time line sits on
+     a card fill instead, so it follows the card ink (design: #686868). */
+  --now-ink: var(--ink-on-glass);
+  --sched-chip-meta: var(--ink-on-card-dim);
   --pill-border-c: rgba(255, 255, 255, 0.60);
   --pill-selected-bg: #fff;
   --ink-on-card: rgba(0, 0, 0, 0.82);

@@ -57,28 +57,45 @@
     <!-- Tiles are built by js/bookmarks.js -->
     <div class="bookmarks" id="bookmarks"></div>
 
-    <div class="container glass">
-      <!-- Assignments -->
-      <section class="panel glass-soft" aria-labelledby="assignments-heading">
-        <header class="panel-head">
-          <h2 class="panel-title" id="assignments-heading">Assignments</h2>
-          <div class="pills" role="tablist" aria-label="Assignment range">
-            <button class="pill is-selected" id="pill-upcoming" role="tab"
-                    aria-selected="true" data-bucket="future" type="button">Upcoming</button>
-            <button class="pill" id="pill-past" role="tab"
-                    aria-selected="false" data-bucket="past" type="button">Past</button>
-          </div>
-        </header>
-        <div class="cards" id="assignments-list" role="tabpanel"></div>
-      </section>
+    <div class="week-bar" id="week-bar" inert>
+      <button class="head-btn" id="week-close" type="button">Classes</button>
+    </div>
 
-      <!-- Classes -->
-      <section class="panel glass-soft" aria-labelledby="classes-heading">
-        <header class="panel-head">
-          <h2 class="panel-title" id="classes-heading">Classes</h2>
-        </header>
-        <div class="cards" id="classes-list"></div>
-      </section>
+    <div class="container glass" id="container">
+      <div class="face face--panels" id="face-panels">
+        <!-- Assignments -->
+        <section class="panel glass-soft" aria-labelledby="assignments-heading">
+          <header class="panel-head">
+            <h2 class="panel-title" id="assignments-heading">Assignments</h2>
+            <div class="pills" role="tablist" aria-label="Assignment range">
+              <button class="pill is-selected" id="pill-upcoming" role="tab"
+                      aria-selected="true" data-bucket="future" type="button">Upcoming</button>
+              <button class="pill" id="pill-past" role="tab"
+                      aria-selected="false" data-bucket="past" type="button">Past</button>
+            </div>
+          </header>
+          <div class="cards" id="assignments-list" role="tabpanel"></div>
+        </section>
+
+        <!-- Classes -->
+        <section class="panel glass-soft" aria-labelledby="classes-heading">
+          <header class="panel-head">
+            <h2 class="panel-title" id="classes-heading">Classes</h2>
+            <button class="head-btn" id="schedule-btn" type="button"
+                    aria-expanded="false" aria-controls="face-week">Schedule</button>
+          </header>
+          <div class="cards" id="classes-list"></div>
+        </section>
+      </div>
+
+      <div class="face face--week" id="face-week" aria-label="Weekly schedule" inert>
+      <p class="week-hint" id="week-hint" hidden>
+        Add the classes you take each week — Easel will then show what's on now, or up
+        next, on every tab. Press <b>+</b> on a day to add one, and <b>Done</b> when
+        you're finished.
+      </p>
+        <div class="week" id="week"></div>
+      </div>
     </div>
 
     <button class="reset-btn" id="reset-btn" type="button" title="Disconnect Canvas">Disconnect</button>
@@ -138,10 +155,43 @@
           submission_types: ['online_quiz'], submission: { workflow_state: 'graded', score: 23.5, submitted_at: iso(-9) } }],
   };
 
-  /* An in-memory storage bag, so bookmarks can actually be added and removed
-     here. It resets on reload — the real thing is chrome.storage.local. */
-  const BAG = new URLSearchParams(location.search).get('view') === 'setup' ? {}
-    : { settings: { origin: 'https://demo.instructure.com', token: 'stub' } };
+  /* A week with one class in progress right now, so the Now bracket is
+     visible, one later today, and a custom class Canvas knows nothing about.
+
+     Clamped to the day rather than wrapped: a class that runs past midnight is
+     rejected by the add dialog, so the seed must not manufacture one either —
+     and near midnight an unclamped window would silently stop reading as Now. */
+  const NOW_MINS = new Date().getHours() * 60 + new Date().getMinutes();
+  const clock = (mins) => {
+    const m = Math.min(Math.max(mins, 0), 23 * 60 + 59);
+    return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+  };
+  const TODAY = (new Date().getDay() + 6) % 7;        /* Monday = 0 */
+  const TOMORROW = (TODAY + 1) % 7;
+
+  const SCHEDULE = [
+    { id: 's1', day: TODAY, courseId: 2, name: 'Linear Algebra',
+      start: clock(NOW_MINS - 20), end: clock(NOW_MINS + 30) },
+    { id: 's2', day: TODAY, courseId: 3, name: 'Organic Chemistry II',
+      start: clock(NOW_MINS + 95), end: clock(NOW_MINS + 145) },
+    { id: 's3', day: TOMORROW, courseId: 1, name: 'Rhetoric and Composition',
+      start: '10:00', end: '10:50' },
+    { id: 's4', day: TOMORROW, courseId: null, name: 'Jazz Ensemble',
+      start: '16:00', end: '17:30' },
+    { id: 's5', day: 3, courseId: 4, name: 'Introduction to Cognitive Science',
+      start: '13:00', end: '14:15' },
+  ];
+
+  /* An in-memory storage bag, so bookmarks and schedule entries can actually
+     be added and removed here. It resets on reload — the real thing is
+     chrome.storage.local. */
+  const VIEW = new URLSearchParams(location.search).get('view');
+  const BAG = VIEW === 'setup' ? {} : {
+    settings: { origin: 'https://demo.instructure.com', token: 'stub' },
+    schedule: SCHEDULE,
+    /* ?view=onboard replays the one-time prompt that follows a fresh connect. */
+    scheduleOnboarded: VIEW !== 'onboard',
+  };
 
   window.chrome = {
     storage: { local: {
@@ -181,9 +231,13 @@
       if (i) i.value = 'Hxplg Wy';
     }, 400));
   }
-  if (new URLSearchParams(location.search).get('view') === 'past') {
+  if (VIEW === 'past') {
     addEventListener('DOMContentLoaded', () =>
       setTimeout(() => document.getElementById('pill-past')?.click(), 600));
+  }
+  if (VIEW === 'schedule') {
+    addEventListener('DOMContentLoaded', () =>
+      setTimeout(() => document.getElementById('schedule-btn')?.click(), 600));
   }
   </script>
   <script type="module" src="js/newtab.js"></script>

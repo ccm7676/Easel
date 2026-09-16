@@ -1,13 +1,19 @@
 /* Entry point: route between setup and dashboard, then render Canvas data
  * using a stale-while-revalidate cache so the tab paints instantly. */
 
-import { getSettings, clearAll, readCache, writeCache } from './store.js';
+import {
+  getSettings, clearAll, readCache, writeCache,
+  isScheduleOnboarded, markScheduleOnboarded,
+} from './store.js';
 import {
   getCourses, getAssignments, originPattern, CanvasError,
 } from './canvas.js';
 import { initSetup } from './setup.js';
 import { initSearch } from './search.js';
 import { initBookmarks } from './bookmarks.js';
+import {
+  initSchedule, setCourses, currentClass, formatRange, closeDialog,
+} from './schedule.js';
 
 const setupView = document.getElementById('setup');
 const dashView = document.getElementById('dashboard');
@@ -15,6 +21,14 @@ const assignmentsList = document.getElementById('assignments-list');
 const classesList = document.getElementById('classes-list');
 const resetBtn = document.getElementById('reset-btn');
 const pills = [...document.querySelectorAll('.pill')];
+
+const container = document.getElementById('container');
+const facePanels = document.getElementById('face-panels');
+const faceWeek = document.getElementById('face-week');
+const scheduleBtn = document.getElementById('schedule-btn');
+const weekBar = document.getElementById('week-bar');
+const weekHint = document.getElementById('week-hint');
+const weekClose = document.getElementById('week-close');
 
 const dueFmt = new Intl.DateTimeFormat(undefined, {
   weekday: 'short', month: 'short', day: 'numeric',
@@ -25,6 +39,11 @@ let settings = null;
 let bucket = 'future';       // 'future' = Upcoming pill, 'past' = Past pill
 let dashboardWired = false;
 let loadToken = 0;           // guards against out-of-order responses
+
+let lastCourses = [];        // whatever the Classes panel is showing
+let classesReady = false;    // false while it holds skeletons or a notice
+let nowKey = '';             // which class is bracketed, and as Now or Next
+let onboarding = false;
 
 /* ------------------------------------------------------------------ */
 /*  Routing                                                            */
@@ -57,7 +76,7 @@ function showSetup(opts) {
   }, opts);
 }
 
-function showDashboard() {
+async function showDashboard() {
   setupView.hidden = true;
   dashView.hidden = false;
 
@@ -65,16 +84,77 @@ function showDashboard() {
     dashboardWired = true;
     initSearch();
     initBookmarks();
+    initSchedule({ onChange: refreshClasses });
     pills.forEach((p) => p.addEventListener('click', () => selectBucket(p.dataset.bucket)));
     resetBtn.addEventListener('click', disconnect);
+    wireWeekView();
   }
   load();
+
+  if (!(await isScheduleOnboarded())) startOnboarding();
 }
 
 async function disconnect() {
   await clearAll();
   settings = null;
   showSetup();
+}
+
+/* ------------------------------------------------------------------ */
+/*  The week view                                                      */
+/* ------------------------------------------------------------------ */
+
+function wireWeekView() {
+  scheduleBtn.addEventListener('click', () => showWeek(!isWeekOpen()));
+  weekClose.addEventListener('click', () => showWeek(false));
+  document.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape') return;
+    // The add dialog swallows the first Escape; the week view gets the next.
+    if (closeDialog()) return;
+    if (isWeekOpen()) showWeek(false);
+  });
+}
+
+function isWeekOpen() {
+  return container.classList.contains('is-schedule');
+}
+
+/**
+ * Slides the panels out and the week in. `inert` rather than `hidden` on the
+ * face that leaves: it has to stay painted for the length of the transition,
+ * but must not be clickable or reachable by Tab while it is off to the side.
+ */
+function showWeek(on) {
+  container.classList.toggle('is-schedule', on);
+  facePanels.inert = on;
+  faceWeek.inert = !on;
+  scheduleBtn.setAttribute('aria-expanded', String(on));
+  weekBar.classList.toggle('is-visible', on);
+  weekBar.inert = !on;
+
+  if (!on) {
+    closeDialog();
+    if (onboarding) endOnboarding();
+  }
+  // Focus follows the view that just appeared, so the keyboard goes with it.
+  (on ? weekClose : scheduleBtn).focus({ preventScroll: true });
+}
+
+/* Onboarding: a new user lands here straight after connecting Canvas, so the
+ * hint has to answer all three questions at once — what to do, why it is worth
+ * doing, and how to get out. Shown once; skipping is just pressing Done. */
+function startOnboarding() {
+  onboarding = true;
+  weekHint.hidden = false;
+  weekClose.textContent = 'Done';
+  showWeek(true);
+}
+
+function endOnboarding() {
+  onboarding = false;
+  weekHint.hidden = true;
+  weekClose.textContent = 'Classes';
+  markScheduleOnboarded();
 }
 
 function selectBucket(next) {
@@ -251,29 +331,98 @@ function statusOf(a) {
 }
 
 function renderClasses(courses) {
+  lastCourses = courses;
+  setCourses(courses);          // the add dialog picks its options from these
   classesList.replaceChildren();
 
-  if (!courses.length) {
+  const current = currentClass();
+  nowKey = keyOf(current);
+  classesReady = true;
+
+  if (!courses.length && !current) {
     renderNotice(classesList, 'No active courses', 'Canvas shows no courses in progress.');
     return;
   }
 
-  for (const c of courses) {
-    const card = link(c.url, 'card');
-    const row = div('card-row');
-    const title = div('card-title', c.name);
-    title.title = c.name;
-    row.append(title);
-
-    if (c.score !== null || c.grade) {
-      const label = c.score !== null ? `${trimNum(c.score)}%` : c.grade;
-      row.append(div('grade', label));
-    }
-
-    card.append(row, div('card-meta', c.code || 'Course'));
-    classesList.append(card);
+  let rest = courses;
+  if (current) {
+    // The scheduled class's own card is hoisted to the top rather than copied,
+    // so the panel never lists the same course twice.
+    const course = courses.find((c) => c.id === current.entry.courseId);
+    if (course) rest = courses.filter((c) => c !== course);
+    classesList.append(bracket(
+      current,
+      course ? classCard(course, current.entry) : customClassCard(current.entry)
+    ));
   }
+
+  for (const c of rest) classesList.append(classCard(c));
 }
+
+/** The outline the design draws around the class that is on now, or is next. */
+function bracket(current, card) {
+  const box = document.createElement('fieldset');
+  box.className = 'now';
+  const legend = document.createElement('legend');
+  legend.className = 'now-legend';
+  legend.textContent = current.state === 'now' ? 'Now' : 'Next';
+  box.append(legend, card);
+  return box;
+}
+
+/** @param {object} [entry] the schedule entry, when this is the bracketed card */
+function classCard(c, entry) {
+  const card = link(c.url, 'card');
+  const row = div('card-row');
+  const title = div('card-title', c.name);
+  title.title = c.name;
+  row.append(title);
+
+  if (c.score !== null || c.grade) {
+    const label = c.score !== null ? `${trimNum(c.score)}%` : c.grade;
+    row.append(div('grade', label));
+  }
+
+  // The bracketed card exists to answer "when", so its meta line gives the
+  // hour rather than repeating the course code.
+  card.append(row, div('card-meta', entry ? formatRange(entry) : c.code || 'Course'));
+  return card;
+}
+
+/** A class typed in by hand has no Canvas course behind it, so nothing to link. */
+function customClassCard(entry) {
+  const card = div('card');
+  const row = div('card-row');
+  const title = div('card-title', entry.name);
+  title.title = entry.name;
+  row.append(title);
+  card.append(row, div('card-meta', formatRange(entry)));
+  return card;
+}
+
+/* The bracket has to move on its own as the day goes by — a pinned new tab can
+ * outlive several classes. Re-render only when the answer actually changes, so
+ * a tab left open all afternoon is not rebuilding the panel twice a minute. */
+const NOW_TICK_MS = 30_000;
+
+function keyOf(current) {
+  return current ? `${current.entry.id}:${current.state}` : '';
+}
+
+function tickNow() {
+  if (!classesReady || keyOf(currentClass()) === nowKey) return;
+  renderClasses(lastCourses);
+}
+
+/** Called when the user edits the schedule, where the answer always changes. */
+function refreshClasses() {
+  if (classesReady) renderClasses(lastCourses);
+}
+
+setInterval(tickNow, NOW_TICK_MS);
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) tickNow();
+});
 
 function renderNotice(target, heading, body, action) {
   target.replaceChildren();

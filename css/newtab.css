@@ -302,8 +302,54 @@ body {
   border-radius: var(--r-outer) var(--r-outer) 0 0;
   border-bottom: 0;
   padding: var(--container-pad) var(--container-pad) 0;
+  /* One cell holding two faces — the panels, and the week view. A grid stack
+     rather than absolute insets, so each face is still sized by normal flow
+     and the panels go on bleeding off the bottom exactly as they did.
+     overflow:hidden is what makes the outgoing face vanish at the glass edge
+     instead of sliding out over the photo. */
+  display: grid;
+  grid-template: 1fr / 1fr;
+  overflow: hidden;
+}
+
+/* ---------- The two faces ---------- */
+.face {
+  grid-area: 1 / 1;
+  /* As on .panel: min-width for the side-by-side case, min-height for the
+     stacked one, or a face will refuse to shrink below its content. */
+  min-width: 0;
+  min-height: 0;
+  transition: transform 380ms cubic-bezier(0.4, 0, 0.2, 1), opacity 240ms ease;
+}
+
+.face--panels {
   display: flex;
   gap: var(--panel-gap);
+}
+
+/* Parked one container-width to the right, and returned to 0 by .is-schedule.
+   The panels leave in the other direction, so the two cross in the middle. */
+.face--week {
+  transform: translateX(calc(100% + var(--container-pad)));
+  opacity: 0;
+}
+
+.container.is-schedule .face--panels {
+  transform: translateX(calc(-100% - var(--panel-gap)));
+  opacity: 0;
+}
+.container.is-schedule .face--week {
+  transform: none;
+  opacity: 1;
+}
+
+/* Cross-fade in place. The faces overlap in one grid cell, so without the
+   slide they would otherwise sit on top of each other mid-transition —
+   pointer-events and inert (set in js/newtab.js) keep the hidden one inert
+   either way. */
+@media (prefers-reduced-motion: reduce) {
+  .face { transition: opacity 160ms ease; }
+  .face--week, .container.is-schedule .face--panels { transform: none; }
 }
 
 /* Panels run to the bottom edge of the window with square bottom corners —
@@ -387,6 +433,38 @@ body {
   background: var(--pill-selected-bg);
   color: var(--ink-on-card-dim);
   text-shadow: none;
+}
+
+/* ---------- Schedule button ---------- */
+/* The design gives it the selected pill's exact box (101.55 x 35.40) on the
+   selected pill's exact baseline — 521.54 against 521.48 — so it is a .pill at
+   rest with a glass fill rather than a shape of its own. Deriving its height
+   from the pill track the same way (--pill-h less the track's own padding) is
+   what keeps the two panel heads optically aligned as --ui-scale moves. */
+.head-btn {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: calc(var(--pill-h) - 2 * var(--pill-pad));
+  padding: calc(6.2px * var(--ui-scale)) var(--pill-pad-x) calc(2px * var(--ui-scale));
+  border: 0;
+  border-radius: var(--r-pill);
+  background: var(--glass-strong);
+  cursor: pointer;
+  font-family: var(--font-display);
+  font-size: var(--fs-pill);
+  line-height: 1;
+  color: var(--ink-on-glass);
+  text-shadow: var(--shadow-text);
+  white-space: nowrap;
+  transition: background 140ms ease, transform 140ms ease;
+}
+.head-btn:hover { background: rgba(255, 255, 255, 0.55); transform: translateY(-1px); }
+.head-btn:active { transform: translateY(0); }
+
+@media (prefers-reduced-motion: reduce) {
+  .head-btn { transition: none; }
 }
 
 /* ============================================================
@@ -483,6 +561,32 @@ a.card:active { transform: translateY(0); }
 }
 .grade { font-size: var(--fs-meta); }
 
+/* ---------- Now / Next bracket ---------- */
+/* A <fieldset> because a <legend> natively cuts a gap in its parent's border,
+   which is exactly the stroke the design draws by hand in node 24:104 — and
+   unlike a pseudo-element painted in the background colour, it stays correct
+   over whatever the photo happens to be behind it.
+   min-inline-size is the one UA default that must go: a fieldset defaults to
+   min-content, which stops the bracket ever narrowing with the panel. */
+.now {
+  flex: none;
+  min-inline-size: 0;
+  margin: 0;
+  padding: var(--now-pad);
+  border: var(--now-border-w) solid var(--now-ink);
+  border-radius: var(--now-r);
+}
+
+.now-legend {
+  margin-left: var(--now-legend-indent);
+  padding: 0 var(--now-legend-pad-x);
+  font-family: var(--font-display);
+  font-size: var(--fs-pill);
+  line-height: 1;
+  color: var(--now-ink);
+  text-shadow: var(--shadow-text);
+}
+
 /* ---------- Skeleton / empty / error ---------- */
 .card.is-skeleton {
   background: var(--glass-strong);
@@ -540,6 +644,317 @@ a.card:active { transform: translateY(0); }
   font-size: 12px;
   color: var(--ink-on-glass-dim);
   text-shadow: var(--shadow-text);
+}
+
+/* ============================================================
+   Week view
+   ============================================================ */
+/* A column so the onboarding hint can take the height it needs off the top
+   and the rows keep the rest. With the hint hidden — which is every run after
+   the first — .week is the whole face and the design's geometry is exact. */
+.face--week {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Seven rows in a container the design sized for five: Saturday and Sunday sit
+   below the fold, which keeps every row at the proportion drawn instead of
+   squeezing two more into the same height. Scrollbar hidden as in .cards. */
+.week {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sched-row-gap);
+  padding-bottom: var(--sched-row-gap);
+  scrollbar-width: none;
+}
+.week::-webkit-scrollbar { display: none; }
+
+.week-row {
+  flex: none;
+  height: var(--sched-row-h);
+  border-radius: var(--sched-row-r);
+  padding-left: var(--sched-day-indent);
+  display: flex;
+  align-items: center;
+}
+
+.week-day {
+  flex: none;
+  width: calc(var(--sched-day-col) - var(--sched-day-indent));
+  font-family: var(--font-display);
+  font-size: var(--fs-title);
+  line-height: 1;
+  color: var(--ink-on-glass);
+  text-shadow: var(--shadow-text);
+  white-space: nowrap;
+}
+
+/* The design fits three chips and the add button; a busier day scrolls
+   sideways rather than changing the row's height.
+   The vertical padding is load-bearing: a chip's delete button hangs off its
+   top-right corner, and an overflow container clips at its padding box — so
+   without it the button would be cut in half. A 61.56 chip in a 90.38 row
+   leaves 14.4 of slack to spend on it. */
+.week-chips {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-left: calc(15px * var(--ui-scale));
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  gap: var(--sched-chip-gap);
+  padding: var(--sched-strip-pad) var(--sched-strip-pad) var(--sched-strip-pad) 0;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+.week-chips::-webkit-scrollbar { display: none; }
+
+/* The wrapper exists for the same reason .bookmark does: the delete button
+   cannot live inside the element it deletes and still be clickable. */
+.week-chip {
+  position: relative;
+  flex: none;
+  width: var(--sched-chip-w);
+  height: var(--sched-chip-h);
+}
+
+.week-chip-face {
+  width: 100%;
+  height: 100%;
+  border-radius: var(--r-card);
+  background: var(--glass-strong);
+  padding: 0 var(--sched-chip-pad-x);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: calc(3px * var(--ui-scale));
+  overflow: hidden;
+}
+
+.week-chip-name,
+.week-chip-time {
+  font-family: var(--font-display);
+  font-size: var(--fs-card-title);
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.week-chip-name { color: var(--ink-on-card); }
+.week-chip-time { color: var(--sched-chip-meta); }
+
+/* Same reveal-on-hover idiom as .bookmark-remove, keyboard escape hatch and
+   all — the chips are reachable by Tab. */
+.week-chip-remove {
+  position: absolute;
+  top: var(--sched-del-top);
+  right: var(--sched-del-right);
+  width: var(--sched-del);
+  height: var(--sched-del);
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 160ms ease, transform 120ms ease;
+}
+.week-chip-remove img { display: block; width: 100%; height: 100%; }
+.week-chip:hover .week-chip-remove,
+.week-chip:focus-within .week-chip-remove,
+.week-chip-remove:focus-visible { opacity: 1; }
+.week-chip-remove:hover { transform: scale(1.08); }
+.week-chip-remove:active { transform: scale(0.96); }
+
+.week-add {
+  flex: none;
+  width: var(--sched-chip-w);
+  height: var(--sched-chip-h);
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-card);
+  background: var(--glass-strong);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: background 140ms ease, transform 140ms ease;
+}
+.week-add img { display: block; width: var(--sched-plus); height: var(--sched-plus); }
+.week-add:hover { background: rgba(255, 255, 255, 0.55); transform: translateY(-1px); }
+.week-add:active { transform: translateY(0); }
+
+@media (prefers-reduced-motion: reduce) {
+  .week-chip-remove, .week-add { transition: none; }
+}
+
+/* ---------- The way out ---------- */
+/* The Schedule screen draws no way back, so this is ours. It floats in the
+   empty band between the bookmarks and the container — inside the week it
+   would land on Monday's row and collide with a fourth class — and is aligned
+   to the container's right edge, where the Schedule button it replaces was. */
+.week-bar {
+  position: fixed;
+  bottom: calc(var(--container-h) + var(--week-bar-gap));
+  left: 50%;
+  /* Half the container's own width, less its own, puts the pill's right edge
+     on the container's right edge whatever the window is doing. */
+  transform: translateX(calc(min(var(--container-w), 94vw) / 2 - 100%));
+  display: flex;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 240ms ease, visibility 0s linear 240ms;
+}
+.week-bar.is-visible {
+  opacity: 1;
+  visibility: visible;
+  transition-delay: 0s;
+}
+
+/* Shown once, during onboarding, above the rows. It has to say what to do, why
+   it is worth doing and how to leave — so it is a sentence, not a label, and
+   it lives inside the week rather than in the band above: that band is only as
+   tall as the window leaves it, and on a short or narrow one three lines of
+   type would run straight into the bookmarks. Costing the rows a little height
+   instead is harmless, because they scroll. */
+.week-hint {
+  flex: none;
+  margin: 0 0 var(--sched-row-gap);
+  padding: 0 var(--sched-day-indent);
+  max-width: calc(760px * var(--ui-scale));
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--ink-on-glass);
+  text-shadow: var(--shadow-text);
+}
+.week-hint b { font-weight: 400; color: var(--ink-on-glass); }
+
+@media (prefers-reduced-motion: reduce) {
+  .week-bar { transition: visibility 0s linear 240ms; }
+  .week-bar.is-visible { transition-delay: 0s; }
+}
+
+/* ============================================================
+   Add-class dialog
+   ============================================================ */
+/* The design never draws one, so it is assembled from the add-bookmark
+   dialog's parts — same white 3px stroke, same heavy blur, same capsule bar
+   and white button — at the same --bmd-* measurements. Only the width and the
+   field row are its own, since it asks four questions rather than one.
+   Positioned by js/schedule.js, which anchors it to the add button that opened
+   it and flips it above when there is no room below. */
+.cd-dialog {
+  position: fixed;
+  width: min(var(--cd-w), 92vw);
+  padding: var(--bmd-pad-t) var(--bmd-pad-x) var(--bmd-pad-b);
+  background: var(--glass-strong);
+  backdrop-filter: blur(var(--bmd-blur));
+  -webkit-backdrop-filter: blur(var(--bmd-blur));
+  border: var(--bmd-border-w) solid #fff;
+  border-radius: var(--r-panel);
+  display: flex;
+  flex-direction: column;
+  gap: var(--cd-gap);
+  z-index: 2;
+}
+
+.cd-title {
+  margin: 0 0 calc(var(--bmd-title-gap) - var(--cd-gap)) var(--bmd-title-indent);
+  font-family: var(--font-display);
+  font-size: var(--fs-title);
+  line-height: 1;
+  color: var(--ink-on-glass);
+  text-shadow: var(--shadow-text);
+}
+
+.cd-row {
+  display: flex;
+  align-items: center;
+  gap: var(--cd-gap);
+}
+
+/* One capsule per field, the same shape as .bm-dialog-bar. */
+.cd-field {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: var(--cd-field-h);
+  padding: 0 calc(16px * var(--ui-scale));
+  background: var(--glass-strong);
+  border: var(--bmd-border-w) solid #fff;
+  border-radius: var(--r-pill);
+  display: flex;
+  align-items: center;
+}
+
+/* Full-height and unpadded for the reason .search-input is: a form control
+   centres its line inside its own content box, so the box has to be the
+   capsule. */
+.cd-field > select,
+.cd-field > input {
+  flex: 1 1 auto;
+  min-width: 0;
+  align-self: stretch;
+  height: auto;
+  margin: 0;
+  padding: 0;
+  line-height: normal;
+  background: none;
+  border: 0;
+  outline: none;
+  color: var(--ink-on-glass);
+  font-family: var(--font-display);
+  font-size: var(--fs-bmd-bar);
+}
+/* Times and the course list are the system face at meta size, for the reason
+   the README gives: Maname's low-contrast numerals get hard to read small,
+   and a native <select>/<input type=time> renders its own furniture anyway. */
+.cd-field > select,
+.cd-field--time > input {
+  font-family: var(--font-ui);
+  font-size: calc(15px * var(--ui-scale) + 1px);
+}
+.cd-field > input::placeholder { color: var(--bmd-placeholder); }
+.cd-field--time { flex: 0 1 auto; }
+.cd-field--time > input { font-variant-numeric: tabular-nums; }
+
+.cd-to {
+  flex: none;
+  font-size: var(--fs-meta);
+  color: var(--ink-on-glass-dim);
+  text-shadow: var(--shadow-text);
+}
+
+.cd-add {
+  flex: none;
+  min-width: var(--bmd-btn-w);
+  height: var(--cd-field-h);
+  padding: 0 calc(14px * var(--ui-scale));
+  font-family: var(--font-display);
+  font-size: var(--fs-bmd-bar);
+  line-height: 1;
+  color: var(--ink-on-card);
+  background: #fff;
+  border: var(--bmd-border-w) solid #fff;
+  border-radius: var(--r-pill);
+  cursor: pointer;
+  transition: transform 120ms ease, opacity 120ms ease;
+}
+.cd-add:hover { transform: translateY(-1px); }
+.cd-add:active { transform: translateY(0); opacity: 0.85; }
+
+.cd-error {
+  margin: 0 0 0 var(--bmd-title-indent);
+  font-size: var(--fs-meta);
+  line-height: 1.35;
+  color: var(--ink-on-glass-dim);
+  text-shadow: var(--shadow-text);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cd-add { transition: none; }
 }
 
 /* ============================================================
@@ -674,11 +1089,7 @@ body:hover .reset-btn { opacity: 1; }
    Narrow windows — stack the two panels
    ============================================================ */
 @media (max-width: 900px) {
-  .container {
-    flex-direction: column;
-    height: max(66vh, 420px);
-    gap: var(--panel-gap);
-  }
+  .face--panels { flex-direction: column; }
   .panel { flex: 1 1 0; }
   /* Only the panel meeting the window bottom should bleed. Stacked above it,
      a square bottom edge just looks like a clipped card, so close it off. */
@@ -686,11 +1097,19 @@ body:hover .reset-btn { opacity: 1; }
     border-radius: var(--r-panel);
     border-bottom: var(--glass-border-w) solid var(--glass-border);
   }
-  /* Retuned as a token rather than `.searchbar { top: ... }` so the bookmark
-     row, which derives its own top from this, follows the bar down. */
+  /* Retuned as tokens rather than `.searchbar { top: ... }` so the bookmark
+     row, which derives its own top from --search-top, follows the bar down —
+     and so .week-bar, which derives its own bottom from --container-h, stays
+     glued to the container's top edge. */
   :root {
     --search-top: 12vh;
     --bm-gap-top: calc(36px * var(--ui-scale));
+    --container-h: max(66vh, 420px);
+    /* Two panels stacked leave the day rows much less height to play with. */
+    --sched-row-h: calc(74px * var(--ui-scale));
+    --sched-day-col: calc(118px * var(--ui-scale));
+    --sched-day-indent: calc(18px * var(--ui-scale));
+    --sched-chip-w: calc(170px * var(--ui-scale));
   }
 }
 
@@ -704,6 +1123,11 @@ body:hover .reset-btn { opacity: 1; }
     --bm-gap: calc(16px * var(--ui-scale));
     --bm-icon: calc(28px * var(--ui-scale));
     --fs-bm-mono: calc(22px * var(--ui-scale));
+    --container-h: calc(100vh - 90px - var(--bm-size) - var(--bm-gap-top));
+    --sched-row-h: calc(70px * var(--ui-scale));
+    --sched-row-gap: calc(9px * var(--ui-scale));
+    /* The band is barely a dozen pixels tall here. The pill still clears the
+       bookmarks, which are centred and much narrower than the container. */
+    --week-bar-gap: calc(4px * var(--ui-scale));
   }
-  .container { height: calc(100vh - 90px - var(--bm-size) - var(--bm-gap-top)); }
 }

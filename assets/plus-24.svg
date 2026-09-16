@@ -1,0 +1,7 @@
+<!-- The add-class chip's plus, from Figma node 53:313. Same geometry as
+     assets/plus.svg — 24.307 arms, 4 stroke, round caps — but in a box that
+     hugs the glyph, so it can be sized into a 61.56 chip without the stroke
+     thinning. The 2 inset on every side is the cap overhang. -->
+<svg width="28.307" height="28.307" viewBox="0 0 28.307 28.307" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M14.1535 2V26.307M2 14.1535H26.307" stroke="white" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
