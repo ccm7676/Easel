@@ -1,5 +1,5 @@
 /* Bookmarks — up to five tiles under the search bar. A set tile shows the
- * site's favicon; a single trailing tile with a plus opens the add popover,
+ * site's favicon; a single trailing tile with a plus opens the add dialog,
  * and disappears once the row is full. */
 
 import { getBookmarks, saveBookmarks, MAX_BOOKMARKS } from './store.js';
@@ -206,36 +206,43 @@ function labelFor(url) {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Add popover                                                        */
+/*  Add dialog                                                         */
 /* ------------------------------------------------------------------ */
 
 function openPopover() {
   const form = document.createElement('form');
-  form.className = 'bm-popover glass';
+  form.className = 'bm-dialog';
   form.noValidate = true;
 
   const title = document.createElement('div');
-  title.className = 'bm-popover-title';
-  title.textContent = 'Add a bookmark';
+  title.className = 'bm-dialog-title';
+  title.textContent = 'Add Bookmark';
+
+  // The address field and the Add button share one capsule, as the search bar
+  // does, so the button has to be a child of the bar rather than a sibling.
+  const bar = document.createElement('div');
+  bar.className = 'bm-dialog-bar';
 
   const input = document.createElement('input');
-  input.className = 'input';
+  input.className = 'bm-dialog-input';
   input.type = 'text';
-  input.placeholder = 'example.com';
+  input.placeholder = 'www.example.com';
   input.spellcheck = false;
   input.autocomplete = 'off';
   input.setAttribute('aria-label', 'Bookmark web address');
 
-  const error = document.createElement('p');
-  error.className = 'bm-error';
-  error.hidden = true;
-
   const save = document.createElement('button');
-  save.className = 'btn';
+  save.className = 'bm-dialog-add';
   save.type = 'submit';
   save.textContent = 'Add';
 
-  form.append(title, input, error, save);
+  bar.append(input, save);
+
+  const error = document.createElement('p');
+  error.className = 'bm-dialog-error';
+  error.hidden = true;
+
+  form.append(title, bar, error);
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
     try {
@@ -252,7 +259,7 @@ function openPopover() {
   popover = form;
   input.focus();
 
-  // Deferred a tick so the click that opened the popover does not close it.
+  // Deferred a tick so the click that opened the dialog does not close it.
   setTimeout(() => document.addEventListener('pointerdown', onOutside), 0);
 }
 

@@ -81,6 +81,40 @@
   --bm-del-right: calc(-11.7px * var(--ui-scale));
   --fs-bm-mono: calc(34px * var(--ui-scale));
 
+  /* ---------- Add-bookmark dialog ----------
+     Figma node 46:217, measured at 1:1 against the 1512x982 frame. The card is
+     a flex column, so the vertical metrics below are the gaps *between* its
+     parts rather than absolute offsets; with the error line hidden they add
+     back up to the design's 145.186 height.
+
+     Two of them are already net of the 3px border: the card is border-box, so
+     padding is measured from inside the stroke while Figma measures from
+     outside it (--bmd-pad-t is the design's 24.31 - 3, --bmd-pad-b its 17.29 - 3).
+     The same subtraction is baked into --bmd-pad-x and the bar's two paddings. */
+  --bmd-w: calc(393.903px * var(--ui-scale));
+  /* Sits under the tile row, tighter than the gap between tiles. */
+  --bmd-gap-top: calc(11.01px * var(--ui-scale));
+  /* Unscaled, like --glass-border-w and --pill-border-w: a hairline that
+     shrinks with the scale stops resolving to whole device pixels. */
+  --bmd-border-w: 3px;
+  /* Heavier than --glass-blur: the card stacks over the tiles it drops from. */
+  --bmd-blur: calc(50px * var(--ui-scale));
+
+  --bmd-pad-x: calc(11.53px * var(--ui-scale));
+  --bmd-pad-t: calc(21.31px * var(--ui-scale));
+  --bmd-pad-b: calc(14.29px * var(--ui-scale));
+  /* The title is indented past the bar's left edge, not flush with it. */
+  --bmd-title-indent: calc(15.59px * var(--ui-scale));
+  --bmd-title-gap: calc(21.38px * var(--ui-scale));
+
+  --bmd-bar-h: calc(58.208px * var(--ui-scale));
+  --bmd-bar-pad-l: calc(31.08px * var(--ui-scale));
+  --bmd-bar-pad-r: calc(4.25px * var(--ui-scale));
+  --bmd-btn-w: calc(79.207px * var(--ui-scale));
+  --bmd-btn-h: calc(44.989px * var(--ui-scale));
+
+  --fs-bmd-bar: calc(20px * var(--ui-scale));
+
   --container-w: calc(942px * var(--ui-scale));
   /* NOT scaled: this is a viewport proportion (497.63 / 982), and it sets how
      far down the panels start. Scaling it dropped them ~11vh and left a dead
@@ -138,6 +172,10 @@
   --pill-selected-bg: #fff;
   --ink-on-card: rgba(0, 0, 0, 0.82);
   --ink-on-card-dim: rgba(0, 0, 0, 0.6);
+  /* The add-bookmark bar's placeholder, which sits on a white-tinted glass of
+     its own rather than on the container — hence its own value. Over a dark
+     photo it becomes rgba(255,255,255,.55). */
+  --bmd-placeholder: #838080;
 
   --status-due: #b4770d;      /* amber — not submitted */
   --status-done: #1f7a4d;     /* green — submitted or graded */

@@ -189,36 +189,104 @@ body {
   .bookmark-link, .bookmark-add, .bookmark-remove { transition: none; }
 }
 
-/* ---------- Add-bookmark popover ---------- */
-.bm-popover {
+/* ---------- Add-bookmark dialog ---------- */
+/* Fixed and centred like the row it drops from. The card is deliberately not
+   .glass: the design gives it a solid-white 3px stroke and a heavier blur than
+   the glass primitive, so overriding two of that rule's three properties would
+   say less than stating all three here. */
+.bm-dialog {
   position: fixed;
   top: calc(var(--search-top) + var(--search-h) + var(--bm-gap-top)
-            + var(--bm-size) + var(--bm-gap));
+            + var(--bm-size) + var(--bmd-gap-top));
   left: 50%;
   transform: translateX(-50%);
-  width: min(calc(340px * var(--ui-scale)), 90vw);
-  padding: calc(18px * var(--ui-scale));
+  width: min(var(--bmd-w), 92vw);
+  padding: var(--bmd-pad-t) var(--bmd-pad-x) var(--bmd-pad-b);
+  background: var(--glass-strong);
+  backdrop-filter: blur(var(--bmd-blur));
+  -webkit-backdrop-filter: blur(var(--bmd-blur));
+  border: var(--bmd-border-w) solid #fff;
   border-radius: var(--r-panel);
   display: flex;
   flex-direction: column;
-  gap: calc(10px * var(--ui-scale));
 }
 
-.bm-popover-title {
+/* Spacing is carried on the title rather than a flex `gap` so that the error
+   line, which is [hidden] until something goes wrong, costs nothing while it
+   is absent — the card then measures exactly the height the design gives it. */
+.bm-dialog-title {
+  margin: 0 0 var(--bmd-title-gap) var(--bmd-title-indent);
   font-family: var(--font-display);
-  font-size: var(--fs-card-title);
+  font-size: var(--fs-title);
   line-height: 1;
   color: var(--ink-on-glass);
   text-shadow: var(--shadow-text);
 }
 
-.bm-popover .btn { align-self: flex-end; padding: 0 calc(20px * var(--ui-scale)); }
+/* The Add button sits *inside* the bar, the same arrangement as .searchbar. */
+.bm-dialog-bar {
+  height: var(--bmd-bar-h);
+  padding: 0 var(--bmd-bar-pad-r) 0 var(--bmd-bar-pad-l);
+  background: var(--glass-strong);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: var(--bmd-border-w) solid #fff;
+  border-radius: var(--r-pill);
+  display: flex;
+  align-items: center;
+  gap: calc(10px * var(--ui-scale));
+}
 
-.bm-error {
+/* Full-height and unpadded for the same reason as .search-input: an input
+   centres its line inside its own content box, so the box has to be the bar. */
+.bm-dialog-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  align-self: stretch;
+  height: auto;
+  margin: 0;
+  padding: 0;
+  line-height: normal;
+  background: none;
+  border: 0;
+  outline: none;
+  font-family: var(--font-display);
+  font-size: var(--fs-bmd-bar);
+  color: var(--ink-on-glass);
+}
+.bm-dialog-input::placeholder { color: var(--bmd-placeholder); }
+
+.bm-dialog-add {
+  flex: none;
+  width: var(--bmd-btn-w);
+  height: var(--bmd-btn-h);
+  padding: 0;
+  font-family: var(--font-display);
+  font-size: var(--fs-bmd-bar);
+  line-height: 1;
+  color: var(--ink-on-card);
+  background: #fff;
+  border: var(--bmd-border-w) solid #fff;
+  border-radius: var(--r-pill);
+  cursor: pointer;
+  transition: transform 120ms ease, opacity 120ms ease;
+}
+.bm-dialog-add:hover { transform: translateY(-1px); }
+.bm-dialog-add:active { transform: translateY(0); opacity: 0.85; }
+
+/* Not in the design, which only draws the resting state — but normalizeUrl()
+   still has to be able to report a bad address. Indented to the title's left
+   edge so the card reads as one column when it does appear. */
+.bm-dialog-error {
+  margin: calc(10px * var(--ui-scale)) 0 0 var(--bmd-title-indent);
   font-size: var(--fs-meta);
   line-height: 1.35;
   color: var(--ink-on-glass-dim);
   text-shadow: var(--shadow-text);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bm-dialog-add { transition: none; }
 }
 
 /* ============================================================
