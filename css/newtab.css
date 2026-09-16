@@ -806,26 +806,13 @@ a.card:active,
 .week-add img { display: block; width: var(--week-plus); height: var(--week-plus); }
 
 /* ---------- The way out ---------- */
-/* The Schedule screen draws no way back, so this is ours. It floats in the
-   empty band between the bookmarks and the container — inside the week it
-   would land on Monday's row and collide with a fourth class — and is aligned
-   to the container's right edge, where the Schedule button it replaces was. */
-.week-bar {
-  position: fixed;
-  bottom: calc(var(--container-h) + var(--week-bar-gap));
-  left: 50%;
-  /* Half the container's own width, less its own, puts the pill's right edge
-     on the container's right edge whatever the window is doing. */
-  transform: translateX(calc(min(var(--container-w), 94vw) / 2 - 100%));
-  display: flex;
-  opacity: 0;
-  visibility: hidden;
-  transition: opacity 240ms ease, visibility 0s linear 240ms;
-}
-.week-bar.is-visible {
-  opacity: 1;
-  visibility: visible;
-  transition-delay: 0s;
+/* Figma node 78:315: a pill in the week's top-left corner, above Monday. It is
+   the design's 101.55 wide rather than hugging "Back", and sits a little
+   further in than the rows do. */
+.week-back {
+  align-self: flex-start;
+  min-width: calc(101.551px * var(--ui-scale));
+  margin: calc(3px * var(--ui-scale)) 0 calc(16.87px * var(--ui-scale)) calc(4px * var(--ui-scale));
 }
 
 /* Shown once, during onboarding, above the rows. It has to say what to do, why
@@ -990,9 +977,6 @@ body:hover .reset-btn { opacity: 1; }
   .face { transition: opacity 160ms ease; }
   .face--week, .container.is-schedule .face--panels { transform: none; }
 
-  .week-bar { transition: visibility 0s linear 240ms; }
-  .week-bar.is-visible { transition-delay: 0s; }
-
   .card.is-skeleton::after { animation: none; }
 }
 
@@ -1008,9 +992,7 @@ body:hover .reset-btn { opacity: 1; }
     border-bottom: var(--glass-border-w) solid var(--glass-border);
   }
   /* Retuned as tokens rather than `.searchbar { top: ... }` so the bookmark
-     row, which derives its own top from --search-top, follows the bar down —
-     and so .week-bar, which derives its own bottom from --container-h, stays
-     glued to the container's top edge. */
+     row, which derives its own top from --search-top, follows the bar down. */
   :root {
     --search-top: 12vh;
     --bm-gap-top: calc(36px * var(--ui-scale));
@@ -1036,8 +1018,5 @@ body:hover .reset-btn { opacity: 1; }
     --container-h: calc(100vh - 90px - var(--bm-size) - var(--bm-gap-top));
     --week-row-h: calc(70px * var(--ui-scale));
     --week-row-gap: calc(9px * var(--ui-scale));
-    /* The band is barely a dozen pixels tall here. The pill still clears the
-       bookmarks, which are centred and much narrower than the container. */
-    --week-bar-gap: calc(4px * var(--ui-scale));
   }
 }

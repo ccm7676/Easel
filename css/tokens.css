@@ -180,10 +180,6 @@
   /* Room for that overhang inside the chips' sideways scrollport. */
   --week-strip-pad: calc(10px * var(--ui-scale));
 
-  /* The band above the container, holding the way out of the week view and —
-     once, during onboarding — the line explaining it. */
-  --week-bar-gap: calc(12px * var(--ui-scale));
-
   /* ---------- Pills ----------
      The design's pills are content-width, not halves of the track
      (Upcoming 101.55, Past 34.02) — so no --pill-w. Forcing equal widths

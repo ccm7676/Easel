@@ -26,7 +26,6 @@ const container = document.getElementById('container');
 const facePanels = document.getElementById('face-panels');
 const faceWeek = document.getElementById('face-week');
 const scheduleBtn = document.getElementById('schedule-btn');
-const weekBar = document.getElementById('week-bar');
 const weekHint = document.getElementById('week-hint');
 const weekClose = document.getElementById('week-close');
 
@@ -129,8 +128,6 @@ function showWeek(on) {
   facePanels.inert = on;
   faceWeek.inert = !on;
   scheduleBtn.setAttribute('aria-expanded', String(on));
-  weekBar.classList.toggle('is-visible', on);
-  weekBar.inert = !on;
 
   if (!on) {
     closeDialog();
@@ -153,7 +150,7 @@ function startOnboarding() {
 function endOnboarding() {
   onboarding = false;
   weekHint.hidden = true;
-  weekClose.textContent = 'Classes';
+  weekClose.textContent = 'Back';
   markScheduleOnboarded();
 }
 
