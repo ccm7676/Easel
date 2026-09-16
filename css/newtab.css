@@ -40,6 +40,61 @@ body {
 
 [hidden] { display: none !important; }
 
+/* ---------- Shared pieces ---------- */
+/* Every glass tile lifts and brightens under the pointer. */
+.bookmark-link:hover,
+.bookmark-add:hover,
+.head-btn:hover,
+a.card:hover,
+.week-add:hover {
+  background: var(--glass-hover);
+  transform: translateY(-1px);
+}
+.bookmark-link:active,
+.bookmark-add:active,
+.head-btn:active,
+a.card:active,
+.week-add:active { transform: translateY(0); }
+
+/* An icon that simply fills its button. */
+.search-btn img,
+.bookmark-add img,
+.bookmark-remove img,
+.week-chip-remove img {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* A form control centres its own single line of text inside its content box,
+   so the box must be the full height of its capsule and carry no vertical
+   padding of its own — stretching it is what keeps the text on the centre line. */
+.search-input,
+.bm-dialog-input,
+.cd-field > select,
+.cd-field > input {
+  flex: 1 1 auto;
+  min-width: 0;
+  align-self: stretch;
+  height: auto;
+  margin: 0;
+  padding: 0;
+  line-height: normal;
+  background: none;
+  border: 0;
+  outline: none;
+  font-family: var(--font-display);
+  color: var(--ink-on-glass);
+}
+
+/* Scrolling lists with the scrollbar hidden. */
+.cards,
+.week,
+.week-chips { scrollbar-width: none; }
+.cards::-webkit-scrollbar,
+.week::-webkit-scrollbar,
+.week-chips::-webkit-scrollbar { display: none; }
+
 /* ============================================================
    Search bar
    ============================================================ */
@@ -57,24 +112,7 @@ body {
   gap: 12px;
 }
 
-/* An input centres its own single line of text inside its content box, so the
-   box must be the full height and carry no vertical padding of its own —
-   stretching it is what keeps the text on the bar's centre line. */
-.search-input {
-  flex: 1 1 auto;
-  min-width: 0;
-  align-self: stretch;
-  height: auto;
-  margin: 0;
-  padding: 0;
-  line-height: normal;
-  background: none;
-  border: 0;
-  outline: none;
-  font-family: var(--font-display);
-  font-size: var(--fs-search);
-  color: var(--ink-on-glass);
-}
+.search-input { font-size: var(--fs-search); }
 .search-input::placeholder { color: var(--ink-on-glass-faint); }
 
 .search-btn {
@@ -87,9 +125,8 @@ body {
   background: none;
   cursor: pointer;
   border-radius: 50%;
-  transition: transform 120ms ease, opacity 120ms ease;
+  transition: transform 120ms ease;
 }
-.search-btn img { display: block; width: 100%; height: 100%; }
 .search-btn:hover { transform: scale(1.05); }
 .search-btn:active { transform: scale(0.97); }
 
@@ -130,13 +167,6 @@ body {
   color: var(--ink-on-glass);
   transition: background 140ms ease, transform 140ms ease;
 }
-.bookmark-link:hover,
-.bookmark-add:hover {
-  background: rgba(255, 255, 255, 0.55);
-  transform: translateY(-1px);
-}
-.bookmark-link:active,
-.bookmark-add:active { transform: translateY(0); }
 
 /* .bookmark-slot is the placeholder the tile renders with for the instant
    before js/bookmarks.js resolves the favicon, so nothing shifts or flashes. */
@@ -157,20 +187,20 @@ body {
   user-select: none;
 }
 
-.bookmark-add img {
-  display: block;
-  width: 100%;
-  height: 100%;
-}
-
 /* Reveal-on-hover, same idiom as .reset-btn — including the keyboard escape
-   hatch, since the tiles are reachable by Tab from the search field. */
-.bookmark-remove {
+   hatch, since tiles and chips are reachable by Tab. The button hangs off its
+   parent's top-right corner by a fixed share of its own size, which is how
+   the design draws it on both the 90 tile and the 61.56 chip. */
+.bookmark-remove { --del: var(--bm-del); }
+.week-chip-remove { --del: var(--week-del); }
+
+.bookmark-remove,
+.week-chip-remove {
   position: absolute;
-  top: var(--bm-del-top);
-  right: var(--bm-del-right);
-  width: var(--bm-del);
-  height: var(--bm-del);
+  top: calc(var(--del) * -0.357);
+  right: calc(var(--del) * -0.403);
+  width: var(--del);
+  height: var(--del);
   padding: 0;
   border: 0;
   background: none;
@@ -178,116 +208,170 @@ body {
   opacity: 0;
   transition: opacity 160ms ease, transform 120ms ease;
 }
-.bookmark-remove img { display: block; width: 100%; height: 100%; }
 .bookmark:hover .bookmark-remove,
 .bookmark:focus-within .bookmark-remove,
-.bookmark-remove:focus-visible { opacity: 1; }
-.bookmark-remove:hover { transform: scale(1.08); }
-.bookmark-remove:active { transform: scale(0.96); }
+.bookmark-remove:focus-visible,
+.week-chip:hover .week-chip-remove,
+.week-chip:focus-within .week-chip-remove,
+.week-chip-remove:focus-visible { opacity: 1; }
+.bookmark-remove:hover,
+.week-chip-remove:hover { transform: scale(1.08); }
+.bookmark-remove:active,
+.week-chip-remove:active { transform: scale(0.96); }
 
-@media (prefers-reduced-motion: reduce) {
-  .bookmark-link, .bookmark-add, .bookmark-remove { transition: none; }
-}
-
-/* ---------- Add-bookmark dialog ---------- */
-/* Fixed and centred like the row it drops from. The card is deliberately not
-   .glass: the design gives it a solid-white 3px stroke and a heavier blur than
-   the glass primitive, so overriding two of that rule's three properties would
-   say less than stating all three here. */
-.bm-dialog {
-  position: fixed;
-  top: calc(var(--search-top) + var(--search-h) + var(--bm-gap-top)
-            + var(--bm-size) + var(--bmd-gap-top));
-  left: 50%;
-  transform: translateX(-50%);
-  width: min(var(--bmd-w), 92vw);
-  padding: var(--bmd-pad-t) var(--bmd-pad-x) var(--bmd-pad-b);
+/* ============================================================
+   Dialogs — add bookmark, add class
+   ============================================================ */
+/* The cards are deliberately not .glass: the design gives them a solid-white
+   stroke and a heavier blur than the glass primitive, so overriding two of
+   that rule's three properties would say less than stating all three here. */
+.bm-dialog,
+.cd-dialog {
+  padding: var(--dialog-pad-t) var(--dialog-pad-x) var(--dialog-pad-b);
   background: var(--glass-strong);
-  backdrop-filter: blur(var(--bmd-blur));
-  -webkit-backdrop-filter: blur(var(--bmd-blur));
-  border: var(--bmd-border-w) solid #fff;
+  backdrop-filter: blur(var(--blur-heavy));
+  -webkit-backdrop-filter: blur(var(--blur-heavy));
+  border: var(--stroke-w) solid var(--solid);
   border-radius: var(--r-panel);
   display: flex;
   flex-direction: column;
 }
 
-/* Spacing is carried on the title rather than a flex `gap` so that the error
-   line, which is [hidden] until something goes wrong, costs nothing while it
-   is absent — the card then measures exactly the height the design gives it. */
-.bm-dialog-title {
-  margin: 0 0 var(--bmd-title-gap) var(--bmd-title-indent);
+/* Fixed and centred like the row it drops from. */
+.bm-dialog {
+  position: fixed;
+  top: calc(var(--search-top) + var(--search-h) + var(--bm-gap-top)
+            + var(--bm-size) + var(--bm-dialog-gap));
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(var(--dialog-w), 92vw);
+}
+
+/* The design never draws this one, so it is assembled from the add-bookmark
+   dialog's parts. Only the width and the field row are its own, since it asks
+   four questions rather than one. Positioned by js/schedule.js, which anchors
+   it to the add button that opened it and flips it above when there is no
+   room below. */
+.cd-dialog {
+  position: fixed;
+  width: min(var(--dialog-wide-w), 92vw);
+  gap: var(--dialog-gap);
+  z-index: 2;
+}
+
+.bm-dialog-title,
+.cd-title {
+  margin: 0 0 var(--dialog-title-gap) var(--dialog-title-indent);
   font-family: var(--font-display);
   font-size: var(--fs-title);
   line-height: 1;
   color: var(--ink-on-glass);
   text-shadow: var(--shadow-text);
 }
+/* Spacing is carried on the title rather than a flex `gap` in the bookmark
+   dialog so that the error line, which is [hidden] until something goes
+   wrong, costs nothing while it is absent. The class dialog does use a gap,
+   so its title gives that much back. */
+.cd-title { margin-bottom: calc(var(--dialog-title-gap) - var(--dialog-gap)); }
 
-/* The Add button sits *inside* the bar, the same arrangement as .searchbar. */
-.bm-dialog-bar {
-  height: var(--bmd-bar-h);
-  padding: 0 var(--bmd-bar-pad-r) 0 var(--bmd-bar-pad-l);
+/* Capsules: the bookmark dialog's one bar, and one per class-dialog field. */
+.bm-dialog-bar,
+.cd-field {
   background: var(--glass-strong);
-  backdrop-filter: blur(var(--glass-blur));
-  -webkit-backdrop-filter: blur(var(--glass-blur));
-  border: var(--bmd-border-w) solid #fff;
+  border: var(--stroke-w) solid var(--solid);
   border-radius: var(--r-pill);
   display: flex;
   align-items: center;
+}
+
+/* The Add button sits *inside* the bar, the same arrangement as .searchbar. */
+.bm-dialog-bar {
+  height: var(--dialog-bar-h);
+  padding: 0 var(--dialog-bar-pad-r) 0 var(--dialog-bar-pad-l);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
   gap: calc(10px * var(--ui-scale));
 }
 
-/* Full-height and unpadded for the same reason as .search-input: an input
-   centres its line inside its own content box, so the box has to be the bar. */
-.bm-dialog-input {
+.cd-field {
   flex: 1 1 auto;
   min-width: 0;
-  align-self: stretch;
-  height: auto;
-  margin: 0;
-  padding: 0;
-  line-height: normal;
-  background: none;
-  border: 0;
-  outline: none;
-  font-family: var(--font-display);
-  font-size: var(--fs-bmd-bar);
-  color: var(--ink-on-glass);
+  height: var(--dialog-field-h);
+  padding: 0 calc(16px * var(--ui-scale));
 }
-.bm-dialog-input::placeholder { color: var(--bmd-placeholder); }
 
-.bm-dialog-add {
+.bm-dialog-input,
+.cd-field > select,
+.cd-field > input { font-size: var(--fs-dialog); }
+.bm-dialog-input::placeholder,
+.cd-field > input::placeholder { color: var(--dialog-placeholder); }
+
+/* Times and the course list are the system face at meta size, for the reason
+   the README gives: Maname's low-contrast numerals get hard to read small,
+   and a native <select>/<input type=time> renders its own furniture anyway. */
+.cd-field > select,
+.cd-field--time > input {
+  font-family: var(--font-ui);
+  font-size: calc(15px * var(--ui-scale) + 1px);
+}
+.cd-field--time { flex: 0 1 auto; }
+.cd-field--time > input { font-variant-numeric: tabular-nums; }
+
+.cd-row {
+  display: flex;
+  align-items: center;
+  gap: var(--dialog-gap);
+}
+
+.cd-to {
   flex: none;
-  width: var(--bmd-btn-w);
-  height: var(--bmd-btn-h);
-  padding: 0;
+  font-size: var(--fs-meta);
+  color: var(--ink-on-glass-dim);
+  text-shadow: var(--shadow-text);
+}
+
+.bm-dialog-add,
+.cd-add {
+  flex: none;
   font-family: var(--font-display);
-  font-size: var(--fs-bmd-bar);
+  font-size: var(--fs-dialog);
   line-height: 1;
   color: var(--ink-on-card);
-  background: #fff;
-  border: var(--bmd-border-w) solid #fff;
+  background: var(--solid);
+  border: var(--stroke-w) solid var(--solid);
   border-radius: var(--r-pill);
   cursor: pointer;
   transition: transform 120ms ease, opacity 120ms ease;
 }
-.bm-dialog-add:hover { transform: translateY(-1px); }
-.bm-dialog-add:active { transform: translateY(0); opacity: 0.85; }
+.bm-dialog-add:hover,
+.cd-add:hover { transform: translateY(-1px); }
+.bm-dialog-add:active,
+.cd-add:active { transform: translateY(0); opacity: 0.85; }
 
-/* Not in the design, which only draws the resting state — but normalizeUrl()
-   still has to be able to report a bad address. Indented to the title's left
+.bm-dialog-add {
+  width: var(--dialog-btn-w);
+  height: var(--dialog-btn-h);
+  padding: 0;
+}
+
+.cd-add {
+  min-width: var(--dialog-btn-w);
+  height: var(--dialog-field-h);
+  padding: 0 var(--pill-pad-x);
+}
+
+/* Not in the design, which only draws the resting state — but the dialogs
+   still have to be able to report bad input. Indented to the title's left
    edge so the card reads as one column when it does appear. */
-.bm-dialog-error {
-  margin: calc(10px * var(--ui-scale)) 0 0 var(--bmd-title-indent);
+.bm-dialog-error,
+.cd-error {
+  margin: 0 0 0 var(--dialog-title-indent);
   font-size: var(--fs-meta);
   line-height: 1.35;
   color: var(--ink-on-glass-dim);
   text-shadow: var(--shadow-text);
 }
-
-@media (prefers-reduced-motion: reduce) {
-  .bm-dialog-add { transition: none; }
-}
+.bm-dialog-error { margin-top: calc(10px * var(--ui-scale)); }
 
 /* ============================================================
    Container + panels
@@ -328,8 +412,13 @@ body {
 }
 
 /* Parked one container-width to the right, and returned to 0 by .is-schedule.
-   The panels leave in the other direction, so the two cross in the middle. */
+   The panels leave in the other direction, so the two cross in the middle.
+   A column so the onboarding hint can take the height it needs off the top
+   and the rows keep the rest. With the hint hidden — which is every run after
+   the first — .week is the whole face and the design's geometry is exact. */
 .face--week {
+  display: flex;
+  flex-direction: column;
   transform: translateX(calc(100% + var(--container-pad)));
   opacity: 0;
 }
@@ -341,15 +430,6 @@ body {
 .container.is-schedule .face--week {
   transform: none;
   opacity: 1;
-}
-
-/* Cross-fade in place. The faces overlap in one grid cell, so without the
-   slide they would otherwise sit on top of each other mid-transition —
-   pointer-events and inert (set in js/newtab.js) keep the hidden one inert
-   either way. */
-@media (prefers-reduced-motion: reduce) {
-  .face { transition: opacity 160ms ease; }
-  .face--week, .container.is-schedule .face--panels { transform: none; }
 }
 
 /* Panels run to the bottom edge of the window with square bottom corners —
@@ -370,7 +450,7 @@ body {
 
 .panel-head {
   flex: none;
-  height: var(--panel-head-h);
+  height: var(--pill-h);
   margin-bottom: var(--panel-head-gap);
   padding-left: var(--panel-head-indent);
   display: flex;
@@ -400,39 +480,9 @@ body {
   align-items: stretch;
   gap: var(--pill-gap);
   height: var(--pill-h);
-  padding: var(--pill-pad) var(--pill-pad);
+  padding: var(--pill-pad);
   border: var(--pill-border-w) solid var(--pill-border-c);
   border-radius: var(--r-pill);
-}
-
-.pill {
-  /* Hug the label — equal thirds would clip "Upcoming". */
-  flex: 0 0 auto;
-  /* Centre the text as a flex line box rather than leaning on button defaults
-     or a line-height guess — Maname's ascent/descent are not symmetric. */
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding-left: var(--pill-pad-x);
-  padding-right: var(--pill-pad-x);
-  padding-top: calc(6.2px * var(--ui-scale));
-  padding-bottom: calc(2px * var(--ui-scale));
-  border: 0;
-  background: none;
-  cursor: pointer;
-  border-radius: var(--r-pill);
-  font-family: var(--font-display);
-  font-size: var(--fs-pill);
-  line-height: 1;
-  color: var(--ink-on-glass);
-  text-shadow: var(--shadow-text);
-  transition: background 140ms ease, color 140ms ease;
-  white-space: nowrap;
-}
-.pill.is-selected {
-  background: var(--pill-selected-bg);
-  color: var(--ink-on-card-dim);
-  text-shadow: none;
 }
 
 /* ---------- Schedule button ---------- */
@@ -440,48 +490,64 @@ body {
    selected pill's exact baseline — 521.54 against 521.48 — so it is a .pill at
    rest with a glass fill rather than a shape of its own. Deriving its height
    from the pill track the same way (--pill-h less the track's own padding) is
-   what keeps the two panel heads optically aligned as --ui-scale moves. */
+   what keeps the two panel heads optically aligned as --ui-scale moves.
+   It shares the pill's rules by selector rather than by class, because
+   js/newtab.js treats every .pill as a tab. */
+.pill,
 .head-btn {
+  /* Hug the label — equal thirds would clip "Upcoming". */
   flex: none;
+  /* Centre the text as a flex line box rather than leaning on button defaults
+     or a line-height guess — Maname's ascent/descent are not symmetric. */
   display: flex;
   align-items: center;
   justify-content: center;
-  height: calc(var(--pill-h) - 2 * var(--pill-pad));
   padding: calc(6.2px * var(--ui-scale)) var(--pill-pad-x) calc(2px * var(--ui-scale));
   border: 0;
   border-radius: var(--r-pill);
-  background: var(--glass-strong);
   cursor: pointer;
   font-family: var(--font-display);
-  font-size: var(--fs-pill);
+  font-size: var(--fs-body);
   line-height: 1;
   color: var(--ink-on-glass);
   text-shadow: var(--shadow-text);
   white-space: nowrap;
-  transition: background 140ms ease, transform 140ms ease;
 }
-.head-btn:hover { background: rgba(255, 255, 255, 0.55); transform: translateY(-1px); }
-.head-btn:active { transform: translateY(0); }
 
-@media (prefers-reduced-motion: reduce) {
-  .head-btn { transition: none; }
+.pill {
+  background: none;
+  transition: background 140ms ease, color 140ms ease;
+}
+.pill.is-selected {
+  background: var(--solid);
+  color: var(--ink-on-card-dim);
+  text-shadow: none;
+}
+
+.head-btn {
+  height: calc(var(--pill-h) - 2 * var(--pill-pad));
+  background: var(--glass-strong);
+  transition: background 140ms ease, transform 140ms ease;
 }
 
 /* ============================================================
    Card lists
    ============================================================ */
-.cards {
+/* The assignment and class lists, and the week's day rows. */
+.cards,
+.week {
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
   display: flex;
   flex-direction: column;
+}
+
+.cards {
   gap: var(--card-gap);
   padding-bottom: var(--card-gap);
-  scrollbar-width: none;
 }
-.cards::-webkit-scrollbar { display: none; }
 
 .card {
   flex: none;
@@ -499,15 +565,10 @@ body {
   color: inherit;
   transition: background 140ms ease, transform 140ms ease;
 }
-a.card:hover {
-  background: rgba(255, 255, 255, 0.55);
-  transform: translateY(-1px);
-}
-a.card:active { transform: translateY(0); }
 
 .card-title {
   font-family: var(--font-display);
-  font-size: var(--fs-card-title);
+  font-size: var(--fs-body);
   line-height: 1.25;
   color: var(--ink-on-card);
   overflow: hidden;
@@ -567,29 +628,31 @@ a.card:active { transform: translateY(0); }
    unlike a pseudo-element painted in the background colour, it stays correct
    over whatever the photo happens to be behind it.
    min-inline-size is the one UA default that must go: a fieldset defaults to
-   min-content, which stops the bracket ever narrowing with the panel. */
+   min-content, which stops the bracket ever narrowing with the panel.
+   The stroke is drawn on the panel, so it follows the glass ink; the design's
+   #434343 is that same family. */
 .now {
   flex: none;
   min-inline-size: 0;
   margin: 0;
   padding: var(--now-pad);
-  border: var(--now-border-w) solid var(--now-ink);
-  border-radius: var(--now-r);
+  border: var(--stroke-w) solid var(--ink-on-glass);
+  border-radius: var(--r-row);
 }
 
 .now-legend {
   margin-left: var(--now-legend-indent);
+  margin-bottom: calc(-3px * var(--ui-scale));
   padding: 0 var(--now-legend-pad-x);
   font-family: var(--font-display);
-  font-size: var(--fs-pill);
+  font-size: var(--fs-body);
   line-height: 1;
-  color: var(--now-ink);
+  color: var(--ink-on-glass);
   text-shadow: var(--shadow-text);
 }
 
 /* ---------- Skeleton / empty / error ---------- */
 .card.is-skeleton {
-  background: var(--glass-strong);
   position: relative;
   overflow: hidden;
 }
@@ -603,10 +666,6 @@ a.card:active { transform: translateY(0); }
   animation: shimmer 1.6s ease-in-out infinite;
 }
 @keyframes shimmer { to { transform: translateX(100%); } }
-
-@media (prefers-reduced-motion: reduce) {
-  .card.is-skeleton::after { animation: none; }
-}
 
 .notice {
   margin: 6px 4px;
@@ -630,12 +689,12 @@ a.card:active { transform: translateY(0); }
   font: inherit;
   font-size: 13px;
   color: var(--ink-on-glass);
-  background: rgba(255, 255, 255, 0.22);
+  background: var(--glass-soft);
   border: 1px solid var(--glass-border);
   border-radius: var(--r-pill);
   cursor: pointer;
 }
-.notice button:hover { background: rgba(255, 255, 255, 0.34); }
+.notice button:hover { background: var(--glass-hover); }
 
 /* Stale-data strip, shown when the network failed but a cache exists */
 .stale-flag {
@@ -649,42 +708,26 @@ a.card:active { transform: translateY(0); }
 /* ============================================================
    Week view
    ============================================================ */
-/* A column so the onboarding hint can take the height it needs off the top
-   and the rows keep the rest. With the hint hidden — which is every run after
-   the first — .week is the whole face and the design's geometry is exact. */
-.face--week {
-  display: flex;
-  flex-direction: column;
-}
-
 /* Seven rows in a container the design sized for five: Saturday and Sunday sit
    below the fold, which keeps every row at the proportion drawn instead of
-   squeezing two more into the same height. Scrollbar hidden as in .cards. */
+   squeezing two more into the same height. */
 .week {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  display: flex;
-  flex-direction: column;
-  gap: var(--sched-row-gap);
-  padding-bottom: var(--sched-row-gap);
-  scrollbar-width: none;
+  gap: var(--week-row-gap);
+  padding-bottom: var(--week-row-gap);
 }
-.week::-webkit-scrollbar { display: none; }
 
 .week-row {
   flex: none;
-  height: var(--sched-row-h);
-  border-radius: var(--sched-row-r);
-  padding-left: var(--sched-day-indent);
+  height: var(--week-row-h);
+  border-radius: var(--r-row);
+  padding-left: var(--week-day-indent);
   display: flex;
   align-items: center;
 }
 
 .week-day {
   flex: none;
-  width: calc(var(--sched-day-col) - var(--sched-day-indent));
+  width: calc(var(--week-day-col) - var(--week-day-indent));
   font-family: var(--font-display);
   font-size: var(--fs-title);
   line-height: 1;
@@ -706,21 +749,19 @@ a.card:active { transform: translateY(0); }
   align-self: stretch;
   display: flex;
   align-items: center;
-  gap: var(--sched-chip-gap);
-  padding: var(--sched-strip-pad) var(--sched-strip-pad) var(--sched-strip-pad) 0;
+  gap: var(--week-chip-gap);
+  padding: var(--week-strip-pad) var(--week-strip-pad) var(--week-strip-pad) 0;
   overflow-x: auto;
   overscroll-behavior-x: contain;
-  scrollbar-width: none;
 }
-.week-chips::-webkit-scrollbar { display: none; }
 
 /* The wrapper exists for the same reason .bookmark does: the delete button
    cannot live inside the element it deletes and still be clickable. */
 .week-chip {
   position: relative;
   flex: none;
-  width: var(--sched-chip-w);
-  height: var(--sched-chip-h);
+  width: var(--week-chip-w);
+  height: var(--week-chip-h);
 }
 
 .week-chip-face {
@@ -728,7 +769,7 @@ a.card:active { transform: translateY(0); }
   height: 100%;
   border-radius: var(--r-card);
   background: var(--glass-strong);
-  padding: 0 var(--sched-chip-pad-x);
+  padding: 0 var(--week-chip-pad-x);
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -739,41 +780,20 @@ a.card:active { transform: translateY(0); }
 .week-chip-name,
 .week-chip-time {
   font-family: var(--font-display);
-  font-size: var(--fs-card-title);
+  font-size: var(--fs-body);
   line-height: 1.25;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .week-chip-name { color: var(--ink-on-card); }
-.week-chip-time { color: var(--sched-chip-meta); }
-
-/* Same reveal-on-hover idiom as .bookmark-remove, keyboard escape hatch and
-   all — the chips are reachable by Tab. */
-.week-chip-remove {
-  position: absolute;
-  top: var(--sched-del-top);
-  right: var(--sched-del-right);
-  width: var(--sched-del);
-  height: var(--sched-del);
-  padding: 0;
-  border: 0;
-  background: none;
-  cursor: pointer;
-  opacity: 0;
-  transition: opacity 160ms ease, transform 120ms ease;
-}
-.week-chip-remove img { display: block; width: 100%; height: 100%; }
-.week-chip:hover .week-chip-remove,
-.week-chip:focus-within .week-chip-remove,
-.week-chip-remove:focus-visible { opacity: 1; }
-.week-chip-remove:hover { transform: scale(1.08); }
-.week-chip-remove:active { transform: scale(0.96); }
+/* Sits on a card fill, so it follows the card ink (design: #686868). */
+.week-chip-time { color: var(--ink-on-card-dim); }
 
 .week-add {
   flex: none;
-  width: var(--sched-chip-w);
-  height: var(--sched-chip-h);
+  width: var(--week-chip-w);
+  height: var(--week-chip-h);
   padding: 0;
   border: 0;
   border-radius: var(--r-card);
@@ -783,13 +803,7 @@ a.card:active { transform: translateY(0); }
   cursor: pointer;
   transition: background 140ms ease, transform 140ms ease;
 }
-.week-add img { display: block; width: var(--sched-plus); height: var(--sched-plus); }
-.week-add:hover { background: rgba(255, 255, 255, 0.55); transform: translateY(-1px); }
-.week-add:active { transform: translateY(0); }
-
-@media (prefers-reduced-motion: reduce) {
-  .week-chip-remove, .week-add { transition: none; }
-}
+.week-add img { display: block; width: var(--week-plus); height: var(--week-plus); }
 
 /* ---------- The way out ---------- */
 /* The Schedule screen draws no way back, so this is ours. It floats in the
@@ -822,140 +836,15 @@ a.card:active { transform: translateY(0); }
    instead is harmless, because they scroll. */
 .week-hint {
   flex: none;
-  margin: 0 0 var(--sched-row-gap);
-  padding: 0 var(--sched-day-indent);
+  margin: 0 0 var(--week-row-gap);
+  padding: 0 var(--week-day-indent);
   max-width: calc(760px * var(--ui-scale));
   font-size: 13px;
   line-height: 1.45;
   color: var(--ink-on-glass);
   text-shadow: var(--shadow-text);
 }
-.week-hint b { font-weight: 400; color: var(--ink-on-glass); }
-
-@media (prefers-reduced-motion: reduce) {
-  .week-bar { transition: visibility 0s linear 240ms; }
-  .week-bar.is-visible { transition-delay: 0s; }
-}
-
-/* ============================================================
-   Add-class dialog
-   ============================================================ */
-/* The design never draws one, so it is assembled from the add-bookmark
-   dialog's parts — same white 3px stroke, same heavy blur, same capsule bar
-   and white button — at the same --bmd-* measurements. Only the width and the
-   field row are its own, since it asks four questions rather than one.
-   Positioned by js/schedule.js, which anchors it to the add button that opened
-   it and flips it above when there is no room below. */
-.cd-dialog {
-  position: fixed;
-  width: min(var(--cd-w), 92vw);
-  padding: var(--bmd-pad-t) var(--bmd-pad-x) var(--bmd-pad-b);
-  background: var(--glass-strong);
-  backdrop-filter: blur(var(--bmd-blur));
-  -webkit-backdrop-filter: blur(var(--bmd-blur));
-  border: var(--bmd-border-w) solid #fff;
-  border-radius: var(--r-panel);
-  display: flex;
-  flex-direction: column;
-  gap: var(--cd-gap);
-  z-index: 2;
-}
-
-.cd-title {
-  margin: 0 0 calc(var(--bmd-title-gap) - var(--cd-gap)) var(--bmd-title-indent);
-  font-family: var(--font-display);
-  font-size: var(--fs-title);
-  line-height: 1;
-  color: var(--ink-on-glass);
-  text-shadow: var(--shadow-text);
-}
-
-.cd-row {
-  display: flex;
-  align-items: center;
-  gap: var(--cd-gap);
-}
-
-/* One capsule per field, the same shape as .bm-dialog-bar. */
-.cd-field {
-  flex: 1 1 auto;
-  min-width: 0;
-  height: var(--cd-field-h);
-  padding: 0 calc(16px * var(--ui-scale));
-  background: var(--glass-strong);
-  border: var(--bmd-border-w) solid #fff;
-  border-radius: var(--r-pill);
-  display: flex;
-  align-items: center;
-}
-
-/* Full-height and unpadded for the reason .search-input is: a form control
-   centres its line inside its own content box, so the box has to be the
-   capsule. */
-.cd-field > select,
-.cd-field > input {
-  flex: 1 1 auto;
-  min-width: 0;
-  align-self: stretch;
-  height: auto;
-  margin: 0;
-  padding: 0;
-  line-height: normal;
-  background: none;
-  border: 0;
-  outline: none;
-  color: var(--ink-on-glass);
-  font-family: var(--font-display);
-  font-size: var(--fs-bmd-bar);
-}
-/* Times and the course list are the system face at meta size, for the reason
-   the README gives: Maname's low-contrast numerals get hard to read small,
-   and a native <select>/<input type=time> renders its own furniture anyway. */
-.cd-field > select,
-.cd-field--time > input {
-  font-family: var(--font-ui);
-  font-size: calc(15px * var(--ui-scale) + 1px);
-}
-.cd-field > input::placeholder { color: var(--bmd-placeholder); }
-.cd-field--time { flex: 0 1 auto; }
-.cd-field--time > input { font-variant-numeric: tabular-nums; }
-
-.cd-to {
-  flex: none;
-  font-size: var(--fs-meta);
-  color: var(--ink-on-glass-dim);
-  text-shadow: var(--shadow-text);
-}
-
-.cd-add {
-  flex: none;
-  min-width: var(--bmd-btn-w);
-  height: var(--cd-field-h);
-  padding: 0 calc(14px * var(--ui-scale));
-  font-family: var(--font-display);
-  font-size: var(--fs-bmd-bar);
-  line-height: 1;
-  color: var(--ink-on-card);
-  background: #fff;
-  border: var(--bmd-border-w) solid #fff;
-  border-radius: var(--r-pill);
-  cursor: pointer;
-  transition: transform 120ms ease, opacity 120ms ease;
-}
-.cd-add:hover { transform: translateY(-1px); }
-.cd-add:active { transform: translateY(0); opacity: 0.85; }
-
-.cd-error {
-  margin: 0 0 0 var(--bmd-title-indent);
-  font-size: var(--fs-meta);
-  line-height: 1.35;
-  color: var(--ink-on-glass-dim);
-  text-shadow: var(--shadow-text);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .cd-add { transition: none; }
-}
+.week-hint b { font-weight: 400; }
 
 /* ============================================================
    Setup
@@ -970,7 +859,7 @@ a.card:active { transform: translateY(0); }
 }
 
 .setup-card {
-  width: min(var(--setup-w), 100%);
+  width: min(var(--dialog-wide-w), 100%);
   border-radius: var(--r-panel);
   padding: var(--setup-pad);
   display: flex;
@@ -1018,7 +907,7 @@ a.card:active { transform: translateY(0); }
 .input::placeholder { color: rgba(0, 0, 0, 0.4); }
 .input:focus {
   background: rgba(255, 255, 255, 0.82);
-  border-color: #fff;
+  border-color: var(--solid);
 }
 
 .field-hint {
@@ -1046,8 +935,8 @@ a.card:active { transform: translateY(0); }
   font-size: 13px;
   line-height: 1.4;
   color: #fff;
-  background: rgba(176, 52, 42, 0.5);
-  border: 1px solid rgba(255, 255, 255, 0.4);
+  background: color-mix(in srgb, var(--status-late) 50%, transparent);
+  border: 1px solid var(--glass-strong);
   border-radius: var(--r-card);
 }
 
@@ -1056,7 +945,7 @@ a.card:active { transform: translateY(0); }
   font-family: var(--font-display);
   font-size: calc(17px * var(--ui-scale));
   color: var(--ink-on-card-dim);
-  background: #fff;
+  background: var(--solid);
   border: 0;
   border-radius: var(--r-pill);
   cursor: pointer;
@@ -1074,7 +963,7 @@ a.card:active { transform: translateY(0); }
   font: inherit;
   font-size: 12px;
   color: var(--ink-on-glass);
-  background: rgba(255, 255, 255, 0.28);
+  background: var(--glass-soft);
   border: 1px solid var(--glass-border);
   border-radius: var(--r-pill);
   cursor: pointer;
@@ -1083,14 +972,35 @@ a.card:active { transform: translateY(0); }
 }
 .reset-btn:focus-visible,
 body:hover .reset-btn { opacity: 1; }
-.reset-btn:hover { background: rgba(255, 255, 255, 0.3); }
+.reset-btn:hover { background: var(--glass-hover); }
+
+/* ============================================================
+   Reduced motion
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  .bookmark-link, .bookmark-add, .bookmark-remove,
+  .bm-dialog-add, .cd-add,
+  .head-btn,
+  .week-chip-remove, .week-add { transition: none; }
+
+  /* Cross-fade in place. The faces overlap in one grid cell, so without the
+     slide they would otherwise sit on top of each other mid-transition —
+     pointer-events and inert (set in js/newtab.js) keep the hidden one inert
+     either way. */
+  .face { transition: opacity 160ms ease; }
+  .face--week, .container.is-schedule .face--panels { transform: none; }
+
+  .week-bar { transition: visibility 0s linear 240ms; }
+  .week-bar.is-visible { transition-delay: 0s; }
+
+  .card.is-skeleton::after { animation: none; }
+}
 
 /* ============================================================
    Narrow windows — stack the two panels
    ============================================================ */
 @media (max-width: 900px) {
   .face--panels { flex-direction: column; }
-  .panel { flex: 1 1 0; }
   /* Only the panel meeting the window bottom should bleed. Stacked above it,
      a square bottom edge just looks like a clipped card, so close it off. */
   .panel:not(:last-child) {
@@ -1106,10 +1016,10 @@ body:hover .reset-btn { opacity: 1; }
     --bm-gap-top: calc(36px * var(--ui-scale));
     --container-h: max(66vh, 420px);
     /* Two panels stacked leave the day rows much less height to play with. */
-    --sched-row-h: calc(74px * var(--ui-scale));
-    --sched-day-col: calc(118px * var(--ui-scale));
-    --sched-day-indent: calc(18px * var(--ui-scale));
-    --sched-chip-w: calc(170px * var(--ui-scale));
+    --week-row-h: calc(74px * var(--ui-scale));
+    --week-day-col: calc(118px * var(--ui-scale));
+    --week-day-indent: calc(18px * var(--ui-scale));
+    --week-chip-w: calc(170px * var(--ui-scale));
   }
 }
 
@@ -1124,8 +1034,8 @@ body:hover .reset-btn { opacity: 1; }
     --bm-icon: calc(28px * var(--ui-scale));
     --fs-bm-mono: calc(22px * var(--ui-scale));
     --container-h: calc(100vh - 90px - var(--bm-size) - var(--bm-gap-top));
-    --sched-row-h: calc(70px * var(--ui-scale));
-    --sched-row-gap: calc(9px * var(--ui-scale));
+    --week-row-h: calc(70px * var(--ui-scale));
+    --week-row-gap: calc(9px * var(--ui-scale));
     /* The band is barely a dozen pixels tall here. The pill still clears the
        bookmarks, which are centred and much narrower than the container. */
     --week-bar-gap: calc(4px * var(--ui-scale));

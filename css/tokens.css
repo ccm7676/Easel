@@ -40,26 +40,38 @@
   --font-ui: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 
   --fs-title: calc(24px * var(--ui-scale));
-  --fs-pill: calc(16px * var(--ui-scale));
-  --fs-card-title: calc(16px * var(--ui-scale));
+  /* Pill labels, card titles, class chips and the Now/Next legend. */
+  --fs-body: calc(16px * var(--ui-scale));
   --fs-search: calc(22px * var(--ui-scale));
+  --fs-dialog: calc(20px * var(--ui-scale));
   /* Floored: below ~11px this stops being comfortably readable. */
   --fs-meta: max(11px, calc(13px * var(--ui-scale)));
 
   /* ---------- Glass ---------- */
   --glass-strong: rgba(255, 255, 255, 0.4);   /* container, search bar, cards */
   --glass-soft: rgba(255, 255, 255, 0.2);     /* the two inner panels */
+  --glass-hover: rgba(255, 255, 255, 0.55);   /* any glass tile under the pointer */
   --glass-border: rgba(255, 255, 255, 0.5);
-  --glass-border-w: 2.5px;
   --glass-blur: calc(30px * var(--ui-scale));
+  /* Heavier than --glass-blur, for the dialogs that stack over other glass. */
+  --blur-heavy: calc(50px * var(--ui-scale));
+  /* Opaque white: dialog strokes, solid buttons, the selected pill. */
+  --solid: #fff;
+
+  /* Stroke widths are unscaled: a hairline that shrinks with the scale stops
+     resolving to whole device pixels. */
+  --glass-border-w: 2.5px;
+  --pill-border-w: 2px;
+  --stroke-w: 3px;                            /* dialogs, Now/Next bracket */
 
   /* ---------- Radii ---------- */
   --r-outer: calc(50px * var(--ui-scale));
   --r-panel: calc(35px * var(--ui-scale));
+  --r-row: calc(20px * var(--ui-scale));      /* week rows, Now/Next bracket */
   --r-card: calc(10px * var(--ui-scale));
   --r-pill: 100px;                            /* "fully round", not a measure */
 
-  /* ---------- Metrics ---------- */
+  /* ---------- Search ---------- */
   --search-w: calc(647.38px * var(--ui-scale));
   --search-h: calc(82.9px * var(--ui-scale));
   --search-top: 17.74vh;                      /* 174.18 / 982 */
@@ -75,47 +87,47 @@
   --bm-gap: calc(29.46px * var(--ui-scale));
   --bm-gap-top: calc(68.65px * var(--ui-scale));
   --bm-icon: calc(44px * var(--ui-scale));
+  /* The delete button's size; it hangs off the tile's corner by a fixed
+     proportion of that size (see .bookmark-remove). */
   --bm-del: calc(29.09px * var(--ui-scale));
-  /* The delete button hangs off the tile's top-right corner, as in the design. */
-  --bm-del-top: calc(-10.36px * var(--ui-scale));
-  --bm-del-right: calc(-11.7px * var(--ui-scale));
   --fs-bm-mono: calc(34px * var(--ui-scale));
+  /* The add-bookmark dialog sits under the tile row, tighter than the gap
+     between tiles. */
+  --bm-dialog-gap: calc(11.01px * var(--ui-scale));
 
-  /* ---------- Add-bookmark dialog ----------
-     Figma node 46:217, measured at 1:1 against the 1512x982 frame. The card is
-     a flex column, so the vertical metrics below are the gaps *between* its
-     parts rather than absolute offsets; with the error line hidden they add
-     back up to the design's 145.186 height.
+  /* ---------- Dialogs ----------
+     Figma node 46:217 (add bookmark), measured at 1:1 against the 1512x982
+     frame. The card is a flex column, so the vertical metrics below are the
+     gaps *between* its parts rather than absolute offsets; with the error line
+     hidden they add back up to the design's 145.186 height.
 
-     Two of them are already net of the 3px border: the card is border-box, so
+     Several are already net of the 3px --stroke-w: the card is border-box, so
      padding is measured from inside the stroke while Figma measures from
-     outside it (--bmd-pad-t is the design's 24.31 - 3, --bmd-pad-b its 17.29 - 3).
-     The same subtraction is baked into --bmd-pad-x and the bar's two paddings.
-     The add-class dialog reuses every one of these; see --cd-w below. */
-  --bmd-w: calc(393.903px * var(--ui-scale));
-  /* Sits under the tile row, tighter than the gap between tiles. */
-  --bmd-gap-top: calc(11.01px * var(--ui-scale));
-  /* Unscaled, like --glass-border-w and --pill-border-w: a hairline that
-     shrinks with the scale stops resolving to whole device pixels. */
-  --bmd-border-w: 3px;
-  /* Heavier than --glass-blur: the card stacks over the tiles it drops from. */
-  --bmd-blur: calc(50px * var(--ui-scale));
+     outside it (--dialog-pad-t is the design's 24.31 - 3, --dialog-pad-b its
+     17.29 - 3; likewise --dialog-pad-x and the bar's two paddings).
 
-  --bmd-pad-x: calc(11.53px * var(--ui-scale));
-  --bmd-pad-t: calc(21.31px * var(--ui-scale));
-  --bmd-pad-b: calc(14.29px * var(--ui-scale));
+     The add-class dialog is not in the design; it reuses every one of these
+     and only adds its own width and field row. */
+  --dialog-w: calc(393.903px * var(--ui-scale));
+  --dialog-pad-x: calc(11.53px * var(--ui-scale));
+  --dialog-pad-t: calc(21.31px * var(--ui-scale));
+  --dialog-pad-b: calc(14.29px * var(--ui-scale));
   /* The title is indented past the bar's left edge, not flush with it. */
-  --bmd-title-indent: calc(15.59px * var(--ui-scale));
-  --bmd-title-gap: calc(21.38px * var(--ui-scale));
+  --dialog-title-indent: calc(15.59px * var(--ui-scale));
+  --dialog-title-gap: calc(21.38px * var(--ui-scale));
 
-  --bmd-bar-h: calc(58.208px * var(--ui-scale));
-  --bmd-bar-pad-l: calc(31.08px * var(--ui-scale));
-  --bmd-bar-pad-r: calc(4.25px * var(--ui-scale));
-  --bmd-btn-w: calc(79.207px * var(--ui-scale));
-  --bmd-btn-h: calc(44.989px * var(--ui-scale));
+  --dialog-bar-h: calc(58.208px * var(--ui-scale));
+  --dialog-bar-pad-l: calc(31.08px * var(--ui-scale));
+  --dialog-bar-pad-r: calc(4.25px * var(--ui-scale));
+  --dialog-btn-w: calc(79.207px * var(--ui-scale));
+  --dialog-btn-h: calc(44.989px * var(--ui-scale));
 
-  --fs-bmd-bar: calc(20px * var(--ui-scale));
+  /* Add-class dialog and setup card: wide enough for a row of three fields. */
+  --dialog-wide-w: calc(460px * var(--ui-scale));
+  --dialog-field-h: calc(46px * var(--ui-scale));
+  --dialog-gap: calc(9px * var(--ui-scale));
 
+  /* ---------- Container + panels ---------- */
   --container-w: calc(942px * var(--ui-scale));
   /* NOT scaled: this is a viewport proportion (497.63 / 982), and it sets how
      far down the panels start. Scaling it dropped them ~11vh and left a dead
@@ -126,7 +138,6 @@
 
   --panel-pad-x: calc(19.45px * var(--ui-scale));
   --panel-head-top: calc(14.13px * var(--ui-scale));
-  --panel-head-h: calc(47.2px * var(--ui-scale));
   --panel-head-gap: calc(18.6px * var(--ui-scale));
   --panel-head-indent: calc(5.88px * var(--ui-scale));
 
@@ -139,20 +150,9 @@
   --card-pad-x: calc(15px * var(--ui-scale));
 
   /* ---------- Now / Next bracket ----------
-     Figma node 24:102 — the outline around the class that is happening now, or
-     is up next. It is exactly one card wide (401.615, the same as .card inside
-     --panel-pad-x), so it takes that card's place in the list and pads around
-     it rather than sitting beside it.
-
-     Drawn as a <fieldset>, because a <legend> natively interrupts its parent's
-     border — that gap is what node 24:104 draws by hand, and unlike a
-     pseudo-element painted in the background colour it stays right over any
-     backdrop. */
-  --now-r: calc(20px * var(--ui-scale));
+     Figma node 24:102. Exactly one card wide, so it takes that card's place
+     in the list and pads around it; see .now in newtab.css. */
   --now-pad: calc(10.37px * var(--ui-scale));
-  /* Unscaled, like --glass-border-w and --pill-border-w: a hairline that
-     shrinks with the scale stops resolving to whole device pixels. */
-  --now-border-w: 3px;
   --now-legend-indent: calc(20px * var(--ui-scale));
   --now-legend-pad-x: calc(11px * var(--ui-scale));
 
@@ -160,60 +160,41 @@
      Figma node 48:223 (Schedule screen). The rows live inside the same glass
      container as the panels, at the same --container-pad: the design's own
      insets are 16.89 left and 20.83 right, asymmetric by hand, so the existing
-     symmetric token stands in for both.
-
-     Seven rows are rendered into a container the design sized for five.
-     Saturday and Sunday fall below the fold and are reached by scrolling,
-     which is deliberate — it keeps every row at the proportion drawn rather
-     than squeezing two more into the same height. */
-  --sched-row-h: calc(90.384px * var(--ui-scale));
-  --sched-row-gap: calc(12.235px * var(--ui-scale));
-  --sched-row-r: calc(20px * var(--ui-scale));
+     symmetric token stands in for both. */
+  --week-row-h: calc(90.384px * var(--ui-scale));
+  --week-row-gap: calc(12.235px * var(--ui-scale));
   /* Where the chips begin, measured from the row's left edge; the day name is
      indented into the column ahead of them. */
-  --sched-day-col: calc(142.06px * var(--ui-scale));
-  --sched-day-indent: calc(25.61px * var(--ui-scale));
+  --week-day-col: calc(142.06px * var(--ui-scale));
+  --week-day-indent: calc(25.61px * var(--ui-scale));
 
-  --sched-chip-w: calc(190.125px * var(--ui-scale));
-  --sched-chip-h: calc(61.562px * var(--ui-scale));
-  --sched-chip-gap: calc(12.752px * var(--ui-scale));
-  --sched-chip-pad-x: calc(11.5px * var(--ui-scale));
+  --week-chip-w: calc(190.125px * var(--ui-scale));
+  --week-chip-h: calc(61.562px * var(--ui-scale));
+  --week-chip-gap: calc(12.752px * var(--ui-scale));
+  --week-chip-pad-x: calc(11.5px * var(--ui-scale));
   /* The ink box of assets/plus-24.svg, cap overhang included. */
-  --sched-plus: calc(28.307px * var(--ui-scale));
-
-  /* The trash button hangs off a chip's top-right corner, as it does off a
-     bookmark tile — scaled to the 61.56 chip, not the 90 tile. */
-  --sched-del: calc(21px * var(--ui-scale));
-  --sched-del-top: calc(-7.5px * var(--ui-scale));
-  --sched-del-right: calc(-8.5px * var(--ui-scale));
-  /* The strip the chips sit in scrolls sideways, so that overhang has to fall
-     inside its scrollport or it is clipped. There is room: a 61.56 chip in a
-     90.38 row leaves 14.4 above and below. */
-  --sched-strip-pad: calc(10px * var(--ui-scale));
+  --week-plus: calc(28.307px * var(--ui-scale));
+  /* Scaled to the 61.56 chip, not the 90 tile; hangs off the corner the same
+     way --bm-del does. */
+  --week-del: calc(21px * var(--ui-scale));
+  /* Room for that overhang inside the chips' sideways scrollport. */
+  --week-strip-pad: calc(10px * var(--ui-scale));
 
   /* The band above the container, holding the way out of the week view and —
      once, during onboarding — the line explaining it. */
   --week-bar-gap: calc(12px * var(--ui-scale));
 
-  /* ---------- Add-class dialog ----------
-     The design does not draw one, so it is built from the add-bookmark
-     dialog's parts and measurements (--bmd-* above); only the width is its
-     own, since it carries a row of three fields rather than one. */
-  --cd-w: calc(460px * var(--ui-scale));
-  --cd-field-h: calc(46px * var(--ui-scale));
-  --cd-gap: calc(9px * var(--ui-scale));
-
-  /* The design's pills are content-width, not halves of the track
+  /* ---------- Pills ----------
+     The design's pills are content-width, not halves of the track
      (Upcoming 101.55, Past 34.02) — so no --pill-w. Forcing equal widths
-     makes "Upcoming" overflow its capsule as soon as the scale drops. */
+     makes "Upcoming" overflow its capsule as soon as the scale drops.
+     --pill-h is also the panel head's height. */
   --pill-h: calc(47.2px * var(--ui-scale));
   --pill-pad: calc(5.8px * var(--ui-scale));
   --pill-pad-x: calc(14px * var(--ui-scale));
   --pill-gap: calc(6px * var(--ui-scale));
-  --pill-border-w: 2px;
 
   /* ---------- Setup card ---------- */
-  --setup-w: calc(460px * var(--ui-scale));
   --setup-pad: calc(34px * var(--ui-scale));
   --fs-setup-title: calc(30px * var(--ui-scale));
   --input-h: calc(44px * var(--ui-scale));
@@ -226,31 +207,25 @@
      so the panel face is ~52% white). Over a light photo that face lands near
      white, where white text is invisible; dark ink reads at roughly 12:1.
      Over a *dark* photo the same face is mid-grey and the reverse is true —
-     then swap the four values below for their white equivalents:
+     then swap these values for their white equivalents:
        --ink-on-glass: #fff;  --ink-on-glass-dim: rgba(255,255,255,.72);
        --ink-on-glass-faint: rgba(255,255,255,.6);
        --pill-border-c: #fff; --shadow-text: 0 1px 3px rgba(0,0,0,.35);
+       --dialog-placeholder: rgba(255,255,255,.55);
      The card ink never changes: cards are opaque enough to stay light. */
   --ink-on-glass: rgba(0, 0, 0, 0.82);
   --ink-on-glass-dim: rgba(0, 0, 0, 0.62);
   --ink-on-glass-faint: rgba(0, 0, 0, 0.45);
-  /* The Now/Next stroke is drawn on the panel, so it follows the glass ink;
-     the design's #434343 is that same family. A class chip's time line sits on
-     a card fill instead, so it follows the card ink (design: #686868). */
-  --now-ink: var(--ink-on-glass);
-  --sched-chip-meta: var(--ink-on-card-dim);
   --pill-border-c: rgba(255, 255, 255, 0.60);
-  --pill-selected-bg: #fff;
+  /* The dialogs' placeholder, which sits on a white-tinted glass of its own
+     rather than on the container — hence its own value. */
+  --dialog-placeholder: #838080;
+  --shadow-text: none;   /* a dark halo under dark ink just smudges it */
+
   --ink-on-card: rgba(0, 0, 0, 0.82);
   --ink-on-card-dim: rgba(0, 0, 0, 0.6);
-  /* The add-bookmark bar's placeholder, which sits on a white-tinted glass of
-     its own rather than on the container — hence its own value. Over a dark
-     photo it becomes rgba(255,255,255,.55). */
-  --bmd-placeholder: #838080;
 
   --status-due: #b4770d;      /* amber — not submitted */
   --status-done: #1f7a4d;     /* green — submitted or graded */
   --status-late: #b0342a;     /* red   — overdue */
-
-  --shadow-text: none;   /* a dark halo under dark ink just smudges it */
 }
