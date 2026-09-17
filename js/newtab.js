@@ -64,6 +64,7 @@ async function main() {
   });
   if (!stillAllowed) {
     return showSetup({
+      origin: saved.origin,
       message: 'Easel lost permission to reach your Canvas. Connect again to restore it.',
     });
   }
@@ -254,11 +255,19 @@ function handleLoadError(err, { hadAssignments, hadCourses }) {
   const kind = err instanceof CanvasError ? err.kind : 'http';
 
   if (kind === 'auth') {
-    const act = { label: 'Update token', run: () => showSetup({
-      message: 'Your Canvas token is no longer valid. Paste a new one.',
-    }) };
-    renderNotice(assignmentsList, 'Token expired', 'Canvas rejected the saved token.', act);
-    if (!hadCourses) renderNotice(classesList, 'Token expired', '', act);
+    // No token means Easel rides the browser's Canvas login, which has ended.
+    const { origin, token } = settings;
+    const act = token
+      ? { label: 'Update token', run: () => showSetup({
+          origin, message: 'Your Canvas token is no longer valid. Paste a new one.',
+        }) }
+      : { label: 'Log in', run: () => showSetup({
+          origin, message: 'You were logged out of Canvas. Log in again to continue.',
+        }) };
+    const title = token ? 'Token expired' : 'Logged out';
+    const body = token ? 'Canvas rejected the saved token.' : 'Your Canvas login has ended.';
+    renderNotice(assignmentsList, title, body, act);
+    if (!hadCourses) renderNotice(classesList, title, '', act);
     return;
   }
 

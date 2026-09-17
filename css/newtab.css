@@ -989,6 +989,26 @@ a.card:active,
 .btn:hover { transform: translateY(-1px); }
 .btn[disabled] { opacity: 0.6; cursor: default; transform: none; }
 
+/* The token fallback: tucked away so the login button reads as the way in. */
+.setup-alt { margin-top: 18px; }
+.setup-alt summary {
+  width: fit-content;
+  margin: 0 auto;
+  font-size: 13px;
+  color: var(--ink-on-glass-dim);
+  text-shadow: var(--shadow-text);
+  cursor: pointer;
+}
+.setup-alt summary:hover { color: var(--ink-on-glass); }
+.setup-alt[open] summary { margin-bottom: 16px; }
+.setup-alt .btn { width: 100%; }
+
+.btn-quiet {
+  color: var(--ink-on-glass);
+  background: transparent;
+  border: 1px solid var(--glass-border);
+}
+
 /* ============================================================
    Settings
    ============================================================ */

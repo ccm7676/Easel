@@ -3,6 +3,13 @@
  * Runs from the new tab page, which is an extension page — with the matching
  * host permission granted, these cross-origin requests are exempt from CORS,
  * so no service-worker proxy is needed.
+ *
+ * Two ways to authenticate, chosen by whether settings carry a token:
+ *  - session (no token): ride the browser's own Canvas login cookie, exactly as
+ *    Canvas's web UI calls its own API. Nothing secret is stored, but it lasts
+ *    only as long as the user stays logged in to Canvas.
+ *  - token: a personal access token as a Bearer header, with cookies omitted so
+ *    whoever happens to be logged in to Canvas in this browser can't leak in.
  */
 
 /** Distinguishable failure modes so the UI can say something useful. */
@@ -54,13 +61,16 @@ function parseNextLink(header) {
 
 /**
  * One request. Returns { body, response }.
+ * @param {string|null|undefined} token absent means use the browser session.
  */
 async function request(url, token) {
   let res;
   try {
     res = await fetch(url, {
-      headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
-      credentials: 'omit',
+      headers: token
+        ? { Authorization: `Bearer ${token}`, Accept: 'application/json' }
+        : { Accept: 'application/json' },
+      credentials: token ? 'omit' : 'include',
       cache: 'no-store',
     });
   } catch (cause) {
@@ -68,7 +78,10 @@ async function request(url, token) {
   }
 
   if (res.status === 401) {
-    throw new CanvasError('auth', 'Canvas rejected the access token.');
+    throw new CanvasError(
+      'auth',
+      token ? 'Canvas rejected the access token.' : 'You are not logged in to Canvas.'
+    );
   }
   if (res.status === 403) {
     const text = await res.text().catch(() => '');
@@ -76,17 +89,22 @@ async function request(url, token) {
     throw new CanvasError(
       kind,
       kind === 'ratelimit'
-        ? 'Canvas is rate limiting this token. Try again shortly.'
-        : 'This token is not allowed to read that.'
+        ? 'Canvas is rate limiting requests. Try again shortly.'
+        : 'Canvas did not allow Easel to read that.'
     );
   }
   if (!res.ok) {
     throw new CanvasError('http', `Canvas returned ${res.status}.`);
   }
 
-  const body = await res.json().catch(() => {
-    throw new CanvasError('http', 'Canvas sent a response we could not read.');
-  });
+  // Canvas can guard session-authenticated JSON against hijacking with a
+  // `while(1);` prefix. Harmless to strip when it isn't there.
+  const body = await res
+    .text()
+    .then((text) => JSON.parse(text.replace(/^while\(1\);/, '')))
+    .catch(() => {
+      throw new CanvasError('http', 'Canvas sent a response we could not read.');
+    });
   return { body, res };
 }
 
@@ -111,7 +129,7 @@ async function getOne({ origin, token }, path) {
   return body;
 }
 
-/** Validates the token and returns the Canvas user. */
+/** Validates the token or session and returns the Canvas user. */
 export function getSelf(settings) {
   return getOne(settings, '/users/self');
 }

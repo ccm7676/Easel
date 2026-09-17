@@ -25,7 +25,10 @@ export const MAX_CLASSES_PER_DAY = 8;
 /** How long cached Canvas data is considered fresh. */
 export const CACHE_TTL_MS = 5 * 60 * 1000;
 
-/** @returns {Promise<{origin:string, token:string}|null>} */
+/**
+ * `token` is absent when Easel uses the browser's Canvas login instead.
+ * @returns {Promise<{origin:string, token?:string, userName?:string|null}|null>}
+ */
 export async function getSettings() {
   const bag = await chrome.storage.local.get(SETTINGS_KEY);
   return bag[SETTINGS_KEY] ?? null;

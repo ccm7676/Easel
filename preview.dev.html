@@ -23,25 +23,36 @@
                autocomplete="off" placeholder="yourschool.instructure.com" required>
       </label>
 
-      <label class="field">
-        <span class="field-label">Access token</span>
-        <input class="input" id="canvas-token" type="password" spellcheck="false"
-               autocomplete="off" placeholder="Paste your token" required>
-        <span class="field-hint">
-          In Canvas go to <em>Account → Settings</em>, then
-          <em>+ New Access Token</em>. <a id="token-link" href="#" target="_blank" rel="noreferrer" hidden>Open that page</a>
-        </span>
-      </label>
-
       <p class="setup-note">
-        Your token is stored only on this computer, in this browser's extension storage.
-        It is not encrypted and it is never sent anywhere except your Canvas server.
-        You can revoke it at any time from Canvas settings.
+        You log in on your school's own Canvas page, so Easel never sees your password
+        and stores nothing secret. If you log out of Canvas, log in again here.
       </p>
 
       <p class="form-error" id="setup-error" hidden></p>
 
-      <button class="btn" id="connect-btn" type="submit">Connect</button>
+      <button class="btn" id="connect-btn" type="submit">Log in with Canvas</button>
+
+      <details class="setup-alt">
+        <summary>Use an access token instead</summary>
+
+        <label class="field">
+          <span class="field-label">Access token</span>
+          <input class="input" id="canvas-token" type="password" spellcheck="false"
+                 autocomplete="off" placeholder="Paste your token">
+          <span class="field-hint">
+            In Canvas go to <em>Account → Settings</em>, then
+            <em>+ New Access Token</em>. <a id="token-link" href="#" target="_blank" rel="noreferrer" hidden>Open that page</a>
+          </span>
+        </label>
+
+        <p class="setup-note">
+          A token keeps Easel connected even when you log out of Canvas. It is stored
+          only on this computer, in this browser's extension storage, and is never sent
+          anywhere except your Canvas server. You can revoke it at any time from Canvas settings.
+        </p>
+
+        <button class="btn btn-quiet" id="token-btn" type="submit">Connect with token</button>
+      </details>
     </form>
   </section>
 

@@ -13,12 +13,26 @@ Built from the Figma design
 1. Open `chrome://extensions`.
 2. Turn on **Developer mode** (top right).
 3. **Load unpacked** → select this folder.
-4. Open a new tab. You'll be asked for your Canvas address and an access token.
+4. Open a new tab, type your school's Canvas address and press
+   **Log in with Canvas**.
 
-### Getting a token
+### Logging in
 
-In Canvas: **Account → Settings → + New Access Token**. The setup screen links
-straight to that page once you've typed your school's address.
+Easel uses the same Canvas login your browser already has. If you're logged in,
+connecting is instant; if not, your school's own login page opens in a small
+window — SSO and two-factor included — and closes itself once you're in. Close
+it to cancel. Easel never sees your password and stores nothing secret.
+
+The catch: Easel is connected only while you're logged in to Canvas in this
+browser. Log out, or let the session expire, and the dashboard offers
+**Log in** to reconnect.
+
+### Using an access token instead
+
+For a connection that survives logging out of Canvas, open **Use an access token
+instead** on the setup screen. Tokens come from **Account → Settings → + New
+Access Token** in Canvas; the setup screen links straight to that page once
+you've typed your school's address.
 
 There is no build step — edit a file, hit reload on `chrome://extensions`, done.
 
@@ -34,7 +48,7 @@ css/newtab.css     layout and components
 js/newtab.js       entry point, routing, rendering
 js/canvas.js       Canvas REST client: pagination, typed errors
 js/store.js        chrome.storage.local wrapper (settings + cache)
-js/setup.js        onboarding and the runtime permission request
+js/setup.js        onboarding: permission request, login window, token fallback
 js/schedule.js     the week view, and which class is on now or next
 js/search.js       search bar
 js/bookmarks.js    the tile row and its add dialog
@@ -52,6 +66,27 @@ the submit handler touches, before any `await`.
 
 Because the new tab is an *extension page* (not a content script), fetches to a
 granted host are exempt from CORS. No background service worker is needed.
+
+### Authentication
+
+Stored settings are `{ origin, userName }`, plus `token` in token mode.
+`request()` in `canvas.js` switches on that one field:
+
+- **Session** (no token): `credentials: 'include'`, so the browser attaches its
+  Canvas login cookie (`_normandy_session`, `SameSite=None`) — the same way
+  Canvas's own UI calls `/api/v1`. Only GETs are made, so no CSRF token is
+  needed. A `while(1);` prefix on the JSON is stripped if Canvas sends one.
+- **Token**: `Authorization: Bearer`, with `credentials: 'omit'` so a different
+  person's Canvas login in the same browser can't mix in.
+
+Logging in opens `${origin}/login` with `chrome.windows.create` (no extra
+permission needed) and polls `/users/self` every 1.5s until it stops returning
+401, checking once more after the window closes in case the user finished and
+closed it themselves.
+
+Canvas's official OAuth isn't used: its developer keys are issued per school by
+that school's admin, and the code exchange needs a client secret, which an
+extension with no server can't keep.
 
 ### Data loading
 
@@ -211,10 +246,13 @@ It's a dev tool only. Delete it before packaging for the Web Store.
 
 ## Known limitations
 
-- **The token is stored unencrypted** in `chrome.storage.local`. That's normal for
-  an extension with no server, but anyone with access to your machine could read
-  it. Revoke it from Canvas settings at any time; Disconnect, in Easel's settings
-  panel, clears it and the Canvas cache locally.
+- **Session login lasts only as long as your Canvas login.** Schools that expire
+  sessions aggressively will ask you to log in again often; use a token there.
+- **A token, if you use one, is stored unencrypted** in `chrome.storage.local`.
+  That's normal for an extension with no server, but anyone with access to your
+  machine could read it. Revoke it from Canvas settings at any time; Disconnect,
+  in Easel's settings panel, clears it and the Canvas cache locally. Disconnect
+  does not log you out of Canvas itself.
 - One request per course per refresh. The 5-minute cache keeps this well clear of
   Canvas rate limits, but a student with many courses makes proportionally more
   calls.
