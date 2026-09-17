@@ -6,6 +6,7 @@ const BOOKMARKS_KEY = 'bookmarks';
 const SCHEDULE_KEY = 'schedule';
 const ONBOARDED_KEY = 'scheduleOnboarded';
 const PREFS_KEY = 'prefs';
+const BACKDROP_KEY = 'backdrop';
 
 /**
  * theme: 'auto' | 'light' | 'dark'
@@ -99,6 +100,22 @@ export async function getPrefs() {
 
 export async function savePrefs(prefs) {
   await chrome.storage.local.set({ [PREFS_KEY]: prefs });
+}
+
+/**
+ * The user's own background, as a JPEG data: URL, or null for the default
+ * photo. Kept out of prefs: it runs to hundreds of kilobytes, and prefs are
+ * read whole on every tab.
+ * @returns {Promise<string|null>}
+ */
+export async function getBackdrop() {
+  const bag = await chrome.storage.local.get(BACKDROP_KEY);
+  return typeof bag[BACKDROP_KEY] === 'string' ? bag[BACKDROP_KEY] : null;
+}
+
+export async function saveBackdrop(dataUrl) {
+  if (dataUrl) await chrome.storage.local.set({ [BACKDROP_KEY]: dataUrl });
+  else await chrome.storage.local.remove(BACKDROP_KEY);
 }
 
 /** Whether the one-time "build your week" prompt has been dismissed. */

@@ -9,7 +9,7 @@
   <link rel="stylesheet" href="css/newtab.css">
 </head>
 <body>
-  <img class="backdrop" src="assets/bg.png" alt="">
+  <div class="backdrop" aria-hidden="true"></div>
 
   <!-- ───────────────────────── Setup ───────────────────────── -->
   <section id="setup" class="setup" hidden>
@@ -107,6 +107,14 @@
               <button class="pill" role="radio" data-value="light" type="button">Light</button>
               <button class="pill" role="radio" data-value="dark" type="button">Dark</button>
             </div>
+          </div>
+          <div class="set-row glass-soft">
+            <span class="set-label" id="backdrop-label">Background</span>
+            <div class="pills" role="radiogroup" aria-labelledby="backdrop-label" id="backdrop-pills">
+              <button class="pill" role="radio" data-value="default" type="button">Default</button>
+              <button class="pill" role="radio" data-value="custom" type="button">Custom</button>
+            </div>
+            <input id="backdrop-file" type="file" accept="image/*" hidden>
           </div>
           <div class="set-row glass-soft">
             <span class="set-label" id="clock-label">Time</span>

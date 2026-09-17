@@ -18,10 +18,12 @@ body {
 }
 
 
+/* A div rather than an <img>, so js/theme-boot.js can swap in the user's own
+   picture (--backdrop-custom, a data: URL) before first paint. */
 .backdrop {
   position: fixed;
   inset: 0;
-  max-width: 100%;
+  background: var(--backdrop-custom, url('../assets/bg.png')) center / cover no-repeat;
   filter: var(--backdrop-filter);
   pointer-events: none;
   user-select: none;

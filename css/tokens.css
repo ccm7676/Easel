@@ -271,8 +271,8 @@
    js/theme-boot.js before first paint, and kept current by js/settings.js
    (which also resolves Auto against the system setting).
 
-   Dark glass reads against a brighter photo, so the backdrop loses its
-   dimming. Ink flips to white everywhere except on --solid; the cards go
+   The backdrop is dimmed harder than in the light theme, so the page as a
+   whole reads as dark rather than as a bright photo behind dark glass. Ink flips to white everywhere except on --solid; the cards go
    near-black, and the glyphs drawn straight onto glass go black, as drawn.
    ============================================================ */
 :root[data-theme='dark'] {
@@ -296,7 +296,7 @@
   --ink-on-card-dim: rgba(255, 255, 255, 0.62);
 
   --icon-filter: invert(1);
-  --backdrop-filter: saturate(1.1);
+  --backdrop-filter: brightness(0.8) saturate(1.1);
   --shimmer: rgba(255, 255, 255, 0.08);
 
   --input-fill: rgba(0, 0, 0, 0.3);
