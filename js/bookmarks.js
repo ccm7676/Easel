@@ -17,6 +17,13 @@ export async function initBookmarks() {
   });
 }
 
+/** Re-reads the store, after the settings panel has cleared it. */
+export async function reloadBookmarks() {
+  closePopover();
+  list = await getBookmarks();
+  render();
+}
+
 /* ------------------------------------------------------------------ */
 /*  Rendering                                                          */
 /* ------------------------------------------------------------------ */

@@ -22,7 +22,7 @@ body {
   position: fixed;
   inset: 0;
   max-width: 100%;
-  filter: brightness(0.6) saturate(1.2);
+  filter: var(--backdrop-filter);
   pointer-events: none;
   user-select: none;
   z-index: -1;
@@ -44,21 +44,30 @@ body {
 /* Every glass tile lifts and brightens under the pointer. */
 .bookmark-link:hover,
 .bookmark-add:hover,
+.settings-btn:hover,
+.set-btn:hover { background: var(--glass-hover); }
 .head-btn:hover,
 a.card:hover,
-.week-add:hover {
-  background: var(--glass-hover);
-  transform: translateY(-1px);
-}
+.week-add:hover { background: var(--card-hover); }
+.bookmark-link:hover,
+.bookmark-add:hover,
+.settings-btn:hover,
+.head-btn:hover,
+a.card:hover,
+.week-add:hover,
+.set-btn:hover { transform: translateY(-1px); }
 .bookmark-link:active,
 .bookmark-add:active,
+.settings-btn:active,
 .head-btn:active,
 a.card:active,
-.week-add:active { transform: translateY(0); }
+.week-add:active,
+.set-btn:active { transform: translateY(0); }
 
 /* An icon that simply fills its button. */
 .search-btn img,
 .bookmark-add img,
+.settings-btn img,
 .bookmark-remove img,
 .week-chip-remove img {
   display: block;
@@ -90,10 +99,12 @@ a.card:active,
 /* Scrolling lists with the scrollbar hidden. */
 .cards,
 .week,
-.week-chips { scrollbar-width: none; }
+.week-chips,
+.settings { scrollbar-width: none; }
 .cards::-webkit-scrollbar,
 .week::-webkit-scrollbar,
-.week-chips::-webkit-scrollbar { display: none; }
+.week-chips::-webkit-scrollbar,
+.settings::-webkit-scrollbar { display: none; }
 
 /* ============================================================
    Search bar
@@ -178,6 +189,9 @@ a.card:active,
 }
 
 /* Shown when the favicon will not load — see faviconUrl() in js/bookmarks.js. */
+.bookmark-add img,
+.settings-btn img { filter: var(--icon-filter); }
+
 .bookmark-mono {
   font-family: var(--font-display);
   font-size: var(--fs-bm-mono);
@@ -187,7 +201,7 @@ a.card:active,
   user-select: none;
 }
 
-/* Reveal-on-hover, same idiom as .reset-btn — including the keyboard escape
+/* Reveal-on-hover — including the keyboard escape
    hatch, since tiles and chips are reachable by Tab. The button hangs off its
    parent's top-right corner by a fixed share of its own size, which is how
    the design draws it on both the 90 tile and the 61.56 chip. */
@@ -336,7 +350,7 @@ a.card:active,
   font-family: var(--font-display);
   font-size: var(--fs-dialog);
   line-height: 1;
-  color: var(--ink-on-card);
+  color: var(--ink-on-solid);
   background: var(--solid);
   border: var(--stroke-w) solid var(--solid);
   border-radius: var(--r-pill);
@@ -386,7 +400,7 @@ a.card:active,
   border-radius: var(--r-outer) var(--r-outer) 0 0;
   border-bottom: 0;
   padding: var(--container-pad) var(--container-pad) 0;
-  /* One cell holding two faces — the panels, and the week view. A grid stack
+  /* One cell holding three faces — the panels, the week view and settings. A grid stack
      rather than absolute insets, so each face is still sized by normal flow
      and the panels go on bleeding off the bottom exactly as they did.
      overflow:hidden is what makes the outgoing face vanish at the glass edge
@@ -396,7 +410,7 @@ a.card:active,
   overflow: hidden;
 }
 
-/* ---------- The two faces ---------- */
+/* ---------- The three faces ---------- */
 .face {
   grid-area: 1 / 1;
   /* As on .panel: min-width for the side-by-side case, min-height for the
@@ -431,6 +445,23 @@ a.card:active,
   transform: none;
   opacity: 1;
 }
+
+/* Settings rises from below the container's bottom edge, which is the window's,
+   while whichever face it replaces fades where it stands. Parked a
+   --container-pad further down than its own height so its top edge is clear of
+   the glass too. */
+.face--settings {
+  display: flex;
+  flex-direction: column;
+  transform: translateY(calc(100% + var(--container-pad)));
+  opacity: 0;
+}
+.container.is-settings .face--settings {
+  transform: none;
+  opacity: 1;
+}
+.container.is-settings .face--panels,
+.container.is-settings .face--week { opacity: 0; }
 
 /* Panels run to the bottom edge of the window with square bottom corners —
    in the design they deliberately bleed past the artboard. */
@@ -520,13 +551,13 @@ a.card:active,
 }
 .pill.is-selected {
   background: var(--solid);
-  color: var(--ink-on-card-dim);
+  color: var(--ink-on-solid-dim);
   text-shadow: none;
 }
 
 .head-btn {
   height: calc(var(--pill-h) - 2 * var(--pill-pad));
-  background: var(--glass-strong);
+  background: var(--card-fill);
   transition: background 140ms ease, transform 140ms ease;
 }
 
@@ -555,7 +586,7 @@ a.card:active,
      and --fs-meta has a px floor that stops shrinking with --ui-scale. */
   min-height: var(--card-h);
   border-radius: var(--r-card);
-  background: var(--glass-strong);
+  background: var(--card-fill);
   padding: var(--card-pad-y) var(--card-pad-x);
   display: flex;
   flex-direction: column;
@@ -661,7 +692,7 @@ a.card:active,
   position: absolute;
   inset: 0;
   background: linear-gradient(90deg,
-    transparent, rgba(255, 255, 255, 0.45), transparent);
+    transparent, var(--shimmer), transparent);
   transform: translateX(-100%);
   animation: shimmer 1.6s ease-in-out infinite;
 }
@@ -768,7 +799,7 @@ a.card:active,
   width: 100%;
   height: 100%;
   border-radius: var(--r-card);
-  background: var(--glass-strong);
+  background: var(--card-fill);
   padding: 0 var(--week-chip-pad-x);
   display: flex;
   flex-direction: column;
@@ -797,7 +828,7 @@ a.card:active,
   padding: 0;
   border: 0;
   border-radius: var(--r-card);
-  background: var(--glass-strong);
+  background: var(--card-fill);
   display: grid;
   place-items: center;
   cursor: pointer;
@@ -885,15 +916,15 @@ a.card:active,
   font: inherit;
   font-size: 15px;
   color: var(--ink-on-card);
-  background: rgba(255, 255, 255, 0.6);
+  background: var(--input-fill);
   border: 1px solid var(--glass-border);
   border-radius: var(--r-card);
   outline: none;
   transition: background 140ms ease, border-color 140ms ease;
 }
-.input::placeholder { color: rgba(0, 0, 0, 0.4); }
+.input::placeholder { color: var(--input-placeholder); }
 .input:focus {
-  background: rgba(255, 255, 255, 0.82);
+  background: var(--input-fill-focus);
   border-color: var(--solid);
 }
 
@@ -931,7 +962,7 @@ a.card:active,
   height: var(--input-h);
   font-family: var(--font-display);
   font-size: calc(17px * var(--ui-scale));
-  color: var(--ink-on-card-dim);
+  color: var(--ink-on-solid-dim);
   background: var(--solid);
   border: 0;
   border-radius: var(--r-pill);
@@ -941,25 +972,132 @@ a.card:active,
 .btn:hover { transform: translateY(-1px); }
 .btn[disabled] { opacity: 0.6; cursor: default; transform: none; }
 
-/* ---------- Disconnect ---------- */
-.reset-btn {
+/* ============================================================
+   Settings
+   ============================================================ */
+/* Figma node 83:380. Fixed to the window's corner rather than the container's,
+   so it stays put while the faces slide. */
+.settings-btn {
   position: fixed;
-  top: 16px;
-  right: 18px;
-  padding: 7px 15px;
-  font: inherit;
-  font-size: 12px;
-  color: var(--ink-on-glass);
-  background: var(--glass-soft);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--r-pill);
+  right: var(--settings-btn-right);
+  bottom: var(--settings-btn-bottom);
+  z-index: 1;
+  width: var(--settings-btn);
+  height: var(--settings-btn);
+  padding: calc((var(--settings-btn) - var(--settings-icon)) / 2);
+  border-radius: var(--r-card);
   cursor: pointer;
-  opacity: 0;
-  transition: opacity 160ms ease, background 160ms ease;
+  transition: background 140ms ease, transform 140ms ease;
 }
-.reset-btn:focus-visible,
-body:hover .reset-btn { opacity: 1; }
-.reset-btn:hover { background: var(--glass-hover); }
+
+/* The week's Back pill, with the gap the settings rows are drawn at. */
+.face--settings .week-back { margin-bottom: var(--set-back-gap); }
+
+.settings {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  gap: var(--set-row-gap);
+  padding-bottom: var(--set-row-gap);
+}
+
+/* Label on the left, one control on the right, both on the row's centre line. */
+.set-row {
+  flex: none;
+  height: var(--set-row-h);
+  border-radius: var(--r-pill);
+  padding: 0 var(--set-ctrl-inset) 0 var(--set-label-indent);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.set-label {
+  min-width: 0;
+  font-family: var(--font-display);
+  font-size: var(--fs-setting);
+  line-height: 1;
+  color: var(--ink-on-glass);
+  text-shadow: var(--shadow-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Disconnect, Reset and the engine picker: an outlined capsule the pill
+   track's height and stroke, at the design's shared 144.21 width. */
+.set-btn,
+.set-select {
+  flex: none;
+  position: relative;
+  width: var(--set-ctrl-w);
+  height: var(--pill-h);
+  border: var(--pill-border-w) solid var(--pill-border-c);
+  border-radius: var(--r-pill);
+  font-family: var(--font-display);
+  font-size: var(--fs-body);
+  color: var(--ink-on-glass);
+  text-shadow: var(--shadow-text);
+}
+
+.set-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: calc(4.2px * var(--ui-scale)) var(--pill-pad-x) 0;
+  line-height: 1;
+  background: none;
+  cursor: pointer;
+  transition: background 140ms ease, transform 140ms ease, color 140ms ease;
+}
+/* Reset asks twice; see confirmFirst() in js/settings.js. */
+.set-btn.is-armed,
+.set-btn.is-armed:hover {
+  background: color-mix(in srgb, var(--status-late) 55%, transparent);
+  color: #fff;
+}
+
+.set-select:hover { background: var(--glass-hover); }
+.set-select:focus-within { border-color: var(--solid); }
+
+/* The native control fills the capsule and draws nothing of its own; the
+   chevron is painted over it and lets clicks fall through. */
+.set-select > select {
+  appearance: none;
+  display: block;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: calc(4.2px * var(--ui-scale)) calc(var(--pill-pad-x) + var(--set-chevron-w)) 0 var(--pill-pad-x);
+  background: none;
+  border: 0;
+  border-radius: inherit;
+  outline: none;
+  font: inherit;
+  line-height: 1;
+  color: inherit;
+  text-align: center;
+  text-align-last: center;
+  cursor: pointer;
+}
+.set-select > select option { color: CanvasText; background: Canvas; }
+
+.set-chevron {
+  position: absolute;
+  top: 50%;
+  right: var(--pill-pad-x);
+  width: var(--set-chevron-w);
+  height: calc(var(--set-chevron-w) / 2);
+  transform: translateY(-50%);
+  background: currentColor;
+  -webkit-mask: url('../assets/chevron-down.svg') center / contain no-repeat;
+  mask: url('../assets/chevron-down.svg') center / contain no-repeat;
+  pointer-events: none;
+}
 
 /* ============================================================
    Reduced motion
@@ -967,7 +1105,7 @@ body:hover .reset-btn { opacity: 1; }
 @media (prefers-reduced-motion: reduce) {
   .bookmark-link, .bookmark-add, .bookmark-remove,
   .bm-dialog-add, .cd-add,
-  .head-btn,
+  .head-btn, .settings-btn, .set-btn,
   .week-chip-remove, .week-add { transition: none; }
 
   /* Cross-fade in place. The faces overlap in one grid cell, so without the
@@ -975,7 +1113,8 @@ body:hover .reset-btn { opacity: 1; }
      pointer-events and inert (set in js/newtab.js) keep the hidden one inert
      either way. */
   .face { transition: opacity 160ms ease; }
-  .face--week, .container.is-schedule .face--panels { transform: none; }
+  .face--week, .face--settings,
+  .container.is-schedule .face--panels { transform: none; }
 
   .card.is-skeleton::after { animation: none; }
 }

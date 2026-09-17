@@ -23,10 +23,19 @@ let courses = [];            // Canvas courses, for the add dialog's picker
 let notify = () => {};       // tells newtab.js the schedule changed
 let dialog = null;
 
-export async function initSchedule({ onChange } = {}) {
+export async function initSchedule({ onChange, hour12 = false } = {}) {
   notify = onChange ?? (() => {});
+  timeFmt = makeTimeFmt(hour12);
   list = await getSchedule();
   render();
+}
+
+/** Re-reads the store, after the settings panel has cleared it. */
+export async function reloadSchedule() {
+  closeDialog();
+  list = await getSchedule();
+  render();
+  notify();
 }
 
 /** The Classes panel learns the course list first and hands it over. */
@@ -95,14 +104,26 @@ function toMinutes(hhmm) {
 /*  Time display                                                       */
 /* ------------------------------------------------------------------ */
 
-const timeFmt = new Intl.DateTimeFormat(undefined, {
-  hour: 'numeric', minute: '2-digit',
-});
+let timeFmt = makeTimeFmt(false);
+
+/** The clock is the user's choice in settings, not the locale's. */
+function makeTimeFmt(hour12) {
+  return new Intl.DateTimeFormat(undefined, hour12
+    ? { hour: 'numeric', minute: '2-digit', hour12: true }
+    : { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+}
+
+/** Called by the settings panel; redraws the week and the Classes panel. */
+export function setHour12(on) {
+  timeFmt = makeTimeFmt(on);
+  render();
+  notify();
+}
 
 /**
- * "10:00am–10:50am", the form the design uses: lower case, and no space in
- * front of the meridiem. A 24-hour locale has no meridiem to close up and
- * simply reads "10:00–10:50".
+ * On a 12-hour clock, "10:00am–10:50am", the form the design uses: lower case,
+ * and no space in front of the meridiem. On a 24-hour clock there is no
+ * meridiem to close up, and it simply reads "10:00–10:50".
  */
 export function formatRange(entry) {
   return `${formatTime(entry.start)}–${formatTime(entry.end)}`;
@@ -279,6 +300,18 @@ function openDialog(day, anchor) {
   const end = timeInput('End time', endFrom);
   endField.append(end);
 
+  // The end follows the start at a class-length gap, and is pulled back after
+  // the start if it is ever left before it.
+  start.addEventListener('input', () => {
+    if (start.value) end.value = endAfter(start.value);
+  });
+  end.addEventListener('blur', () => {
+    if (!start.value) return;
+    if (!end.value || toMinutes(end.value) <= toMinutes(start.value)) {
+      end.value = endAfter(start.value);
+    }
+  });
+
   const save = document.createElement('button');
   save.className = 'cd-add';
   save.type = 'submit';
@@ -342,9 +375,16 @@ function submit(day, { picker, name, start, end }) {
 function defaultTimes(day) {
   const entries = onDay(day);
   const last = entries[entries.length - 1];
-  if (!last) return ['09:00', '09:50'];
-  const from = Math.min(toMinutes(last.end) + 10, 22 * 60);
-  return [fromMinutes(from), fromMinutes(Math.min(from + 50, 23 * 60 + 59))];
+  if (!last) return ['09:00', '10:00'];
+  const from = fromMinutes(Math.min(toMinutes(last.end) + 10, 22 * 60));
+  return [from, endAfter(from)];
+}
+
+const CLASS_MINUTES = 60;
+
+/** An hour after `start`, held to the same day. */
+function endAfter(start) {
+  return fromMinutes(Math.min(toMinutes(start) + CLASS_MINUTES, 23 * 60 + 59));
 }
 
 function fromMinutes(total) {

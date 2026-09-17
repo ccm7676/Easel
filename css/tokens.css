@@ -197,7 +197,8 @@
 
   /* ---------- Ink ----------
      THIS BLOCK IS BACKGROUND-DEPENDENT — the one thing to change if you swap
-     assets/bg.png for a dark photo.
+     assets/bg.png for a dark photo. (The dark theme below is a separate
+     matter: it darkens the glass itself, and overrides these to suit.)
 
      Every glass surface is white-tinted (container 0.4, panel a further 0.2,
      so the panel face is ~52% white). Over a light photo that face lands near
@@ -220,8 +221,90 @@
 
   --ink-on-card: rgba(0, 0, 0, 0.82);
   --ink-on-card-dim: rgba(0, 0, 0, 0.6);
+  /* Ink on --solid: the selected pill and the white buttons. White is white in
+     either theme, so unlike the two above these never change. */
+  --ink-on-solid: rgba(0, 0, 0, 0.82);
+  --ink-on-solid-dim: rgba(0, 0, 0, 0.6);
+
+  /* Cards, week chips and the head buttons. The same glass as the container in
+     the light theme; the dark theme lifts them off it by going near-black. */
+  --card-fill: var(--glass-strong);
+  --card-hover: var(--glass-hover);
+
+  /* The white glyphs drawn straight onto glass (bookmark plus, settings gear). */
+  --icon-filter: none;
+  --backdrop-filter: brightness(0.6) saturate(1.2);
+  --shimmer: rgba(255, 255, 255, 0.45);
+
+  /* Setup card fields. */
+  --input-fill: rgba(255, 255, 255, 0.6);
+  --input-fill-focus: rgba(255, 255, 255, 0.82);
+  --input-placeholder: rgba(0, 0, 0, 0.4);
 
   --status-due: #b4770d;      /* amber — not submitted */
   --status-done: #1f7a4d;     /* green — submitted or graded */
   --status-late: #b0342a;     /* red   — overdue */
+
+  /* ---------- Settings ----------
+     Figma node 84:390 (Settings panel), inside the same container as the
+     panels and the week. Like the week rows, the rows take --container-pad
+     rather than the design's own 22.07 inset. */
+  --set-row-h: calc(73.784px * var(--ui-scale));
+  --set-row-gap: calc(9.47px * var(--ui-scale));
+  --set-back-gap: calc(15.05px * var(--ui-scale));
+  --set-label-indent: calc(33.16px * var(--ui-scale));
+  --set-ctrl-inset: calc(15.09px * var(--ui-scale));
+  --set-ctrl-w: calc(144.211px * var(--ui-scale));
+  --set-chevron-w: calc(12px * var(--ui-scale));
+  --fs-setting: calc(20px * var(--ui-scale));
+
+  /* Figma node 83:380: a glass tile in the bottom-right corner. */
+  --settings-btn: calc(60.033px * var(--ui-scale));
+  --settings-btn-right: calc(6.4px * var(--ui-scale));
+  --settings-btn-bottom: calc(7.46px * var(--ui-scale));
+  --settings-icon: calc(30px * var(--ui-scale));
+}
+
+/* ============================================================
+   Dark theme — Figma node 82:319
+   Colour only: every metric above is shared. data-theme is set on <html> by
+   js/theme-boot.js before first paint, and kept current by js/settings.js
+   (which also resolves Auto against the system setting).
+
+   Dark glass reads against a brighter photo, so the backdrop loses its
+   dimming. Ink flips to white everywhere except on --solid; the cards go
+   near-black, and the glyphs drawn straight onto glass go black, as drawn.
+   ============================================================ */
+:root[data-theme='dark'] {
+  color-scheme: dark;   /* native controls: select popups, time pickers */
+
+  --glass-strong: rgba(36, 38, 43, 0.62);
+  --glass-soft: rgba(36, 38, 43, 0.12);
+  --glass-hover: rgba(60, 63, 70, 0.75);
+  --glass-border: rgba(30, 32, 36, 0.55);
+
+  --card-fill: rgba(18, 19, 22, 0.78);
+  --card-hover: rgba(40, 42, 48, 0.85);
+
+  --ink-on-glass: rgba(255, 255, 255, 0.88);
+  --ink-on-glass-dim: rgba(255, 255, 255, 0.66);
+  --ink-on-glass-faint: rgba(255, 255, 255, 0.48);
+  --pill-border-c: #fff;
+  --dialog-placeholder: rgba(255, 255, 255, 0.5);
+
+  --ink-on-card: rgba(255, 255, 255, 0.9);
+  --ink-on-card-dim: rgba(255, 255, 255, 0.62);
+
+  --icon-filter: invert(1);
+  --backdrop-filter: saturate(1.1);
+  --shimmer: rgba(255, 255, 255, 0.08);
+
+  --input-fill: rgba(0, 0, 0, 0.3);
+  --input-fill-focus: rgba(0, 0, 0, 0.45);
+  --input-placeholder: rgba(255, 255, 255, 0.45);
+
+  /* Lifted so they still read on the dark cards. */
+  --status-due: #e2a547;
+  --status-done: #4cc08a;
+  --status-late: #ec6a5e;
 }

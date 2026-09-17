@@ -3,24 +3,26 @@
 
 import {
   getSettings, clearAll, readCache, writeCache,
-  isScheduleOnboarded, markScheduleOnboarded,
+  isScheduleOnboarded, markScheduleOnboarded, clearScheduleAndBookmarks,
 } from './store.js';
 import {
   getCourses, getAssignments, originPattern, CanvasError,
 } from './canvas.js';
 import { initSetup } from './setup.js';
-import { initSearch } from './search.js';
-import { initBookmarks } from './bookmarks.js';
+import { initSearch, setSearchEngine } from './search.js';
+import { initBookmarks, reloadBookmarks } from './bookmarks.js';
 import {
-  initSchedule, setCourses, currentClass, formatRange, closeDialog,
+  initSchedule, reloadSchedule, setHour12,
+  setCourses, currentClass, formatRange, closeDialog,
 } from './schedule.js';
+import { initSettings } from './settings.js';
 
 const setupView = document.getElementById('setup');
 const dashView = document.getElementById('dashboard');
 const assignmentsList = document.getElementById('assignments-list');
 const classesList = document.getElementById('classes-list');
-const resetBtn = document.getElementById('reset-btn');
-const pills = [...document.querySelectorAll('.pill')];
+// Only the Upcoming/Past pair: the settings panel has pills of its own.
+const pills = [...document.querySelectorAll('.pill[data-bucket]')];
 
 const container = document.getElementById('container');
 const facePanels = document.getElementById('face-panels');
@@ -28,6 +30,9 @@ const faceWeek = document.getElementById('face-week');
 const scheduleBtn = document.getElementById('schedule-btn');
 const weekHint = document.getElementById('week-hint');
 const weekClose = document.getElementById('week-close');
+const faceSettings = document.getElementById('face-settings');
+const settingsBtn = document.getElementById('settings-btn');
+const settingsClose = document.getElementById('settings-close');
 
 const dueFmt = new Intl.DateTimeFormat(undefined, {
   weekday: 'short', month: 'short', day: 'numeric',
@@ -43,6 +48,7 @@ let lastCourses = [];        // whatever the Classes panel is showing
 let classesReady = false;    // false while it holds skeletons or a notice
 let nowKey = '';             // which class is bracketed, and as Now or Next
 let onboarding = false;
+let view = 'panels';         // which face is showing: 'panels' | 'week' | 'settings'
 
 /* ------------------------------------------------------------------ */
 /*  Routing                                                            */
@@ -81,12 +87,18 @@ async function showDashboard() {
 
   if (!dashboardWired) {
     dashboardWired = true;
-    initSearch();
+    // First, so the clock and engine are known before anything renders with them.
+    const prefs = await initSettings({
+      onClock: setHour12,
+      onEngine: setSearchEngine,
+      onDisconnect: disconnect,
+      onReset: resetScheduleAndBookmarks,
+    });
+    initSearch({ engine: prefs.engine });
     initBookmarks();
-    initSchedule({ onChange: refreshClasses });
+    initSchedule({ onChange: refreshClasses, hour12: prefs.clock === '12h' });
     pills.forEach((p) => p.addEventListener('click', () => selectBucket(p.dataset.bucket)));
-    resetBtn.addEventListener('click', disconnect);
-    wireWeekView();
+    wireFaces();
   }
   load();
 
@@ -94,47 +106,69 @@ async function showDashboard() {
 }
 
 async function disconnect() {
+  showFace('panels');
   await clearAll();
   settings = null;
   showSetup();
 }
 
+async function resetScheduleAndBookmarks() {
+  await clearScheduleAndBookmarks();
+  await Promise.all([reloadBookmarks(), reloadSchedule()]);
+}
+
 /* ------------------------------------------------------------------ */
-/*  The week view                                                      */
+/*  The faces: panels, week view, settings                             */
 /* ------------------------------------------------------------------ */
 
-function wireWeekView() {
-  scheduleBtn.addEventListener('click', () => showWeek(!isWeekOpen()));
-  weekClose.addEventListener('click', () => showWeek(false));
+function wireFaces() {
+  scheduleBtn.addEventListener('click', () => toggleFace('week'));
+  weekClose.addEventListener('click', () => showFace('panels'));
+  settingsBtn.addEventListener('click', () => toggleFace('settings'));
+  settingsClose.addEventListener('click', () => showFace('panels'));
   document.addEventListener('keydown', (event) => {
     if (event.key !== 'Escape') return;
-    // The add dialog swallows the first Escape; the week view gets the next.
+    // The add dialog swallows the first Escape; the face gets the next.
     if (closeDialog()) return;
-    if (isWeekOpen()) showWeek(false);
+    showFace('panels');
   });
 }
 
-function isWeekOpen() {
-  return container.classList.contains('is-schedule');
+function toggleFace(name) {
+  showFace(view === name ? 'panels' : name);
 }
 
 /**
- * Slides the panels out and the week in. `inert` rather than `hidden` on the
+ * Slides one face in and the others out. `inert` rather than `hidden` on a
  * face that leaves: it has to stay painted for the length of the transition,
- * but must not be clickable or reachable by Tab while it is off to the side.
+ * but must not be clickable or reachable by Tab while it is out of sight.
+ * Settings replaces whatever was showing, the week included; closing it
+ * always comes back to the panels.
  */
-function showWeek(on) {
-  container.classList.toggle('is-schedule', on);
-  facePanels.inert = on;
-  faceWeek.inert = !on;
-  scheduleBtn.setAttribute('aria-expanded', String(on));
+function showFace(next) {
+  const prev = view;
+  if (next === prev) return;
+  view = next;
 
-  if (!on) {
+  container.classList.toggle('is-schedule', next === 'week');
+  container.classList.toggle('is-settings', next === 'settings');
+  facePanels.inert = next !== 'panels';
+  faceWeek.inert = next !== 'week';
+  faceSettings.inert = next !== 'settings';
+  scheduleBtn.setAttribute('aria-expanded', String(next === 'week'));
+  settingsBtn.setAttribute('aria-expanded', String(next === 'settings'));
+
+  if (prev === 'week') {
     closeDialog();
     if (onboarding) endOnboarding();
   }
-  // Focus follows the view that just appeared, so the keyboard goes with it.
-  (on ? weekClose : scheduleBtn).focus({ preventScroll: true });
+
+  // Focus follows the face that just appeared, so the keyboard goes with it;
+  // back on the panels, it returns to the button that left them.
+  const target = next === 'week' ? weekClose
+    : next === 'settings' ? settingsClose
+    : prev === 'week' ? scheduleBtn : settingsBtn;
+  target.focus({ preventScroll: true });
 }
 
 /* Onboarding: a new user lands here straight after connecting Canvas, so the
@@ -144,7 +178,7 @@ function startOnboarding() {
   onboarding = true;
   weekHint.hidden = false;
   weekClose.textContent = 'Done';
-  showWeek(true);
+  showFace('week');
 }
 
 function endOnboarding() {

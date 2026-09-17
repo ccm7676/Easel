@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>New Tab</title>
+  <script src="js/theme-boot.js"></script>
   <link rel="stylesheet" href="css/tokens.css">
   <link rel="stylesheet" href="css/newtab.css">
 </head>
@@ -57,8 +58,8 @@
     <!-- Tiles are built by js/bookmarks.js -->
     <div class="bookmarks" id="bookmarks"></div>
 
-    <!-- Two faces stacked in one cell: the panels, and the week view that
-         slides in over them. See .face in css/newtab.css. -->
+    <!-- Three faces stacked in one cell: the panels, the week view that
+         slides in over them, and settings. See .face in css/newtab.css. -->
     <div class="container glass" id="container">
       <div class="face face--panels" id="face-panels">
         <!-- Assignments -->
@@ -96,9 +97,50 @@
       </p>
         <div class="week" id="week"></div>
       </div>
+
+      <!-- Wired by js/settings.js; rises from the bottom over
+           whichever face was showing. -->
+      <div class="face face--settings" id="face-settings" aria-label="Settings" inert>
+        <button class="head-btn week-back" id="settings-close" type="button">Back</button>
+        <div class="settings">
+          <div class="set-row glass-soft">
+            <span class="set-label" id="theme-label">Appearance</span>
+            <div class="pills" role="radiogroup" aria-labelledby="theme-label" data-pref="theme">
+              <button class="pill" role="radio" data-value="auto" type="button">Auto</button>
+              <button class="pill" role="radio" data-value="light" type="button">Light</button>
+              <button class="pill" role="radio" data-value="dark" type="button">Dark</button>
+            </div>
+          </div>
+          <div class="set-row glass-soft">
+            <span class="set-label" id="clock-label">Time</span>
+            <div class="pills" role="radiogroup" aria-labelledby="clock-label" data-pref="clock">
+              <button class="pill" role="radio" data-value="12h" type="button">12H</button>
+              <button class="pill" role="radio" data-value="24h" type="button">24H</button>
+            </div>
+          </div>
+          <div class="set-row glass-soft">
+            <label class="set-label" for="engine-select">Search</label>
+            <div class="set-select">
+              <select id="engine-select"></select>
+              <span class="set-chevron" aria-hidden="true"></span>
+            </div>
+          </div>
+          <div class="set-row glass-soft">
+            <span class="set-label">Canvas Login</span>
+            <button class="set-btn" id="disconnect-btn" type="button">Disconnect</button>
+          </div>
+          <div class="set-row glass-soft">
+            <span class="set-label">Reset Schedule &amp; Bookmarks</span>
+            <button class="set-btn" id="reset-btn" type="button">Reset</button>
+          </div>
+        </div>
+      </div>
     </div>
 
-    <button class="reset-btn" id="reset-btn" type="button" title="Disconnect Canvas">Disconnect</button>
+    <button class="settings-btn glass" id="settings-btn" type="button" aria-label="Settings"
+            aria-expanded="false" aria-controls="face-settings">
+      <img src="assets/settings.svg" alt="">
+    </button>
   </section>
 
   <script type="module" src="js/newtab.js"></script>

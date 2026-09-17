@@ -78,8 +78,9 @@ An entry is:
 
 - **Day 0 is Monday**, matching the design's row order; JS weeks start on Sunday,
   so `weekday()` in `schedule.js` rotates.
-- **Times are local wall-clock, 24-hour, with no date.** They sort as plain
-  strings and can't drift across a timezone change or a DST boundary.
+- **Times are stored as local wall-clock, 24-hour, with no date.** They sort as
+  plain strings and can't drift across a timezone change or a DST boundary. How
+  they are *shown* — 12H or 24H — is a setting, applied only at display time.
 - **`name` is a snapshot, not a lookup.** It lets the week paint before courses
   have loaded and keeps an entry readable after its course disappears;
   `courseId` only says which Classes card to hoist, and may safely go stale.
@@ -99,6 +100,27 @@ twice a minute.
 New users land in the week view straight after connecting Canvas, with a one-time
 line explaining what to add, why, and how to leave. An empty schedule is a fine
 outcome — skipping is just pressing Done.
+
+### Settings
+
+The gear in the bottom-right corner raises a third face into the container
+(`js/settings.js`), replacing the panels or the week. It holds:
+
+- **Appearance** — Auto / Light / Dark. The dark theme is a single
+  `:root[data-theme='dark']` block in `tokens.css` that overrides colour tokens
+  only. `js/theme-boot.js`, a classic script in `<head>`, sets `data-theme`
+  before first paint from a `localStorage` copy of the preference, because
+  `chrome.storage` is async and would flash the wrong theme. Auto follows
+  `prefers-color-scheme` live.
+- **Time** — 12H (`10:00am–10:50am`) or 24H (`10:00–10:50`) for every time Easel
+  draws. The add-class dialog's native time pickers follow the browser locale
+  regardless.
+- **Search** — the browser's default engine via `chrome.search`, or a fixed one
+  (Google, Bing, DuckDuckGo, Brave, Ecosia) from `ENGINES` in `search.js`.
+- **Disconnect** from Canvas, and **Reset** the schedule and bookmarks (asks for
+  a second press).
+
+Prefs live under `prefs` in `chrome.storage.local` and survive Disconnect.
 
 ### The `bucket` gotcha
 
@@ -134,7 +156,7 @@ dashboard. Don't "fix" this back.
 - **The ink block is background-dependent.** Glass surfaces are white-tinted, so
   over the current light photo they read near-white and the text is dark. Swap in
   a dark photo and you flip those four tokens back to white — the block says
-  exactly which.
+  exactly which. (The dark theme is separate: it darkens the glass itself.)
 
 - **Maname ships Regular 400 only** — there is no bold. Hierarchy comes from size
   and opacity. The font is bundled (`assets/maname-latin.woff2`) so the page works
@@ -191,8 +213,8 @@ It's a dev tool only. Delete it before packaging for the Web Store.
 
 - **The token is stored unencrypted** in `chrome.storage.local`. That's normal for
   an extension with no server, but anyone with access to your machine could read
-  it. Revoke it from Canvas settings at any time; the Disconnect button (top
-  right, on hover) clears everything locally.
+  it. Revoke it from Canvas settings at any time; Disconnect, in Easel's settings
+  panel, clears it and the Canvas cache locally.
 - One request per course per refresh. The 5-minute cache keeps this well clear of
   Canvas rate limits, but a student with many courses makes proportionally more
   calls.

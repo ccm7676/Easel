@@ -5,6 +5,14 @@ const CACHE_PREFIX = 'cache:';
 const BOOKMARKS_KEY = 'bookmarks';
 const SCHEDULE_KEY = 'schedule';
 const ONBOARDED_KEY = 'scheduleOnboarded';
+const PREFS_KEY = 'prefs';
+
+/**
+ * theme: 'auto' | 'light' | 'dark'
+ * clock: '12h' | '24h'
+ * engine: a key of ENGINES in js/search.js; 'default' is the browser's own
+ */
+export const DEFAULT_PREFS = { theme: 'auto', clock: '24h', engine: 'default' };
 
 /** The design has room for five tiles and no more. */
 export const MAX_BOOKMARKS = 5;
@@ -27,8 +35,8 @@ export async function saveSettings(settings) {
 }
 
 /**
- * Drops the Canvas connection and everything derived from it. Bookmarks and
- * the schedule are deliberately exempt: they are the user's own work, not
+ * Drops the Canvas connection and everything derived from it. Bookmarks, the
+ * schedule and prefs are deliberately exempt: they are the user's own work, not
  * Canvas data, so disconnecting Canvas should not throw them away. A schedule
  * entry survives a change of school too — it carries its own class name, and
  * only its courseId goes stale.
@@ -75,6 +83,22 @@ export async function getSchedule() {
 
 export async function saveSchedule(list) {
   await chrome.storage.local.set({ [SCHEDULE_KEY]: list });
+}
+
+/** The settings panel's Reset. Leaves the onboarding flag alone: the user
+ *  already knows where the week lives. */
+export async function clearScheduleAndBookmarks() {
+  await chrome.storage.local.remove([SCHEDULE_KEY, BOOKMARKS_KEY]);
+}
+
+/** Stored values over the defaults, so a pref added later reads as its default. */
+export async function getPrefs() {
+  const bag = await chrome.storage.local.get(PREFS_KEY);
+  return { ...DEFAULT_PREFS, ...bag[PREFS_KEY] };
+}
+
+export async function savePrefs(prefs) {
+  await chrome.storage.local.set({ [PREFS_KEY]: prefs });
 }
 
 /** Whether the one-time "build your week" prompt has been dismissed. */
