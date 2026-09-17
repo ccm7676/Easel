@@ -413,13 +413,25 @@ a.card:active,
 }
 
 /* ---------- The three faces ---------- */
+/* The slide alone carries a face — the container's overflow:hidden clips it
+   as it leaves — and visibility hides a parked face once its slide is over. */
 .face {
   grid-area: 1 / 1;
   /* As on .panel: min-width for the side-by-side case, min-height for the
      stacked one, or a face will refuse to shrink below its content. */
   min-width: 0;
   min-height: 0;
-  transition: transform 380ms cubic-bezier(0.4, 0, 0.2, 1), opacity 240ms ease;
+  visibility: hidden;
+  transition: transform 380ms cubic-bezier(0.4, 0, 0.2, 1), visibility 0s linear 380ms;
+}
+
+/* The face showing — visible at once on the way in, where a leaving face only
+   turns hidden after its 380ms delay. */
+.container:not(.is-schedule):not(.is-settings) .face--panels,
+.container.is-schedule .face--week,
+.container.is-settings .face--settings {
+  visibility: visible;
+  transition-delay: 0s;
 }
 
 .face--panels {
@@ -436,34 +448,37 @@ a.card:active,
   display: flex;
   flex-direction: column;
   transform: translateX(calc(100% + var(--container-pad)));
-  opacity: 0;
 }
 
 .container.is-schedule .face--panels {
   transform: translateX(calc(-100% - var(--panel-gap)));
-  opacity: 0;
 }
-.container.is-schedule .face--week {
-  transform: none;
-  opacity: 1;
-}
+.container.is-schedule .face--week { transform: none; }
 
 /* Settings rises from below the container's bottom edge, which is the window's,
-   while whichever face it replaces fades where it stands. Parked a
-   --container-pad further down than its own height so its top edge is clear of
-   the glass too. */
+   and pushes whichever face it replaces up and out of the top — the vertical
+   twin of the week's sideways slide. Both park a --container-pad past their
+   own height so the edge is clear of the glass too. */
 .face--settings {
   display: flex;
   flex-direction: column;
   transform: translateY(calc(100% + var(--container-pad)));
-  opacity: 0;
 }
-.container.is-settings .face--settings {
-  transform: none;
-  opacity: 1;
-}
+.container.is-settings .face--settings { transform: none; }
 .container.is-settings .face--panels,
-.container.is-settings .face--week { opacity: 0; }
+.container.is-settings .face--week {
+  transform: translateY(calc(-100% - var(--container-pad)));
+}
+
+/* The glass inside a face — panels, week rows, settings rows — is tint only.
+   Chrome skips painting a backdrop-filter nested in another while its face's
+   transform is animating, so each row went missing for the whole slide and
+   popped in on the last frame. Sitting on the container's own blur, the
+   second one added nothing visible anyway. */
+.face .glass-soft {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
 
 /* Panels run to the bottom edge of the window with square bottom corners —
    in the design they deliberately bleed past the artboard. */
@@ -1110,13 +1125,13 @@ a.card:active,
   .head-btn, .settings-btn, .set-btn,
   .week-chip-remove, .week-add { transition: none; }
 
-  /* Cross-fade in place. The faces overlap in one grid cell, so without the
-     slide they would otherwise sit on top of each other mid-transition —
-     pointer-events and inert (set in js/newtab.js) keep the hidden one inert
-     either way. */
-  .face { transition: opacity 160ms ease; }
+  /* Swap in place. Not a cross-fade: fading a face breaks the glass inside it
+     (see .face). inert (set in js/newtab.js) keeps the hidden ones inert. */
+  .face { transition: none; }
   .face--week, .face--settings,
-  .container.is-schedule .face--panels { transform: none; }
+  .container.is-schedule .face--panels,
+  .container.is-settings .face--panels,
+  .container.is-settings .face--week { transform: none; }
 
   .card.is-skeleton::after { animation: none; }
 }
