@@ -6,15 +6,18 @@ import {
   isScheduleOnboarded, markScheduleOnboarded, clearScheduleAndBookmarks,
 } from './store.js';
 import {
-  getCourses, getAssignments, originPattern, CanvasError,
+  getCourses, getAssignments, sortByDue, originPattern, CanvasError,
 } from './canvas.js';
 import { initSetup } from './setup.js';
 import { initSearch, setSearchEngine } from './search.js';
 import { initBookmarks, reloadBookmarks } from './bookmarks.js';
 import {
   initSchedule, reloadSchedule, setHour12,
-  setCourses, currentClass, formatRange, closeDialog,
+  setCourses, upcomingClasses, dayLabel, formatRange, closeDialog,
 } from './schedule.js';
+import {
+  initTasks, setTaskCourses, tasksFor, removeTask, toggleTask, closeTaskDialog,
+} from './tasks.js';
 import { initSettings } from './settings.js';
 
 const setupView = document.getElementById('setup');
@@ -46,7 +49,9 @@ let loadToken = 0;           // guards against out-of-order responses
 
 let lastCourses = [];        // whatever the Classes panel is showing
 let classesReady = false;    // false while it holds skeletons or a notice
-let nowKey = '';             // which class is bracketed, and as Now or Next
+let nowKey = '';             // the upcoming classes shown, in order, and how labelled
+let lastAssignments = null;  // the Canvas items on screen; null under skeletons or a notice
+let lastRender = {};         // ...and the options they were rendered with
 let onboarding = false;
 let view = 'panels';         // which face is showing: 'panels' | 'week' | 'settings'
 
@@ -98,6 +103,7 @@ async function showDashboard() {
     initSearch({ engine: prefs.engine });
     initBookmarks();
     initSchedule({ onChange: refreshClasses, hour12: prefs.clock === '12h' });
+    initTasks({ onChange: refreshAssignments });
     pills.forEach((p) => p.addEventListener('click', () => selectBucket(p.dataset.bucket)));
     wireFaces();
   }
@@ -129,8 +135,8 @@ function wireFaces() {
   settingsClose.addEventListener('click', () => showFace('panels'));
   document.addEventListener('keydown', (event) => {
     if (event.key !== 'Escape') return;
-    // The add dialog swallows the first Escape; the face gets the next.
-    if (closeDialog()) return;
+    // An add dialog swallows the first Escape; the face gets the next.
+    if (closeDialog() || closeTaskDialog()) return;
     showFace('panels');
   });
 }
@@ -159,6 +165,7 @@ function showFace(next) {
   scheduleBtn.setAttribute('aria-expanded', String(next === 'week'));
   settingsBtn.setAttribute('aria-expanded', String(next === 'settings'));
 
+  closeTaskDialog();
   if (prev === 'week') {
     closeDialog();
     if (onboarding) endOnboarding();
@@ -234,7 +241,7 @@ async function load() {
     }
 
     if (!courses.length) {
-      renderNotice(assignmentsList, 'No active courses', 'Nothing to pull assignments from yet.');
+      renderAssignments([], { noCourses: true });
       return;
     }
 
@@ -289,6 +296,7 @@ function handleLoadError(err, { hadAssignments, hadCourses }) {
 /* ------------------------------------------------------------------ */
 
 function renderSkeletons(target, count = 4) {
+  if (target === assignmentsList) lastAssignments = null;
   target.replaceChildren();
   for (let i = 0; i < count; i++) {
     const el = document.createElement('div');
@@ -297,21 +305,37 @@ function renderSkeletons(target, count = 4) {
   }
 }
 
-function renderAssignments(items, { failed = 0 } = {}) {
+/**
+ * @param {Array} items the Canvas assignments; the user's own are merged in here
+ * @param {{failed?: number, noCourses?: boolean}} [opts]
+ */
+function renderAssignments(items, opts = {}) {
+  const { failed = 0, noCourses = false } = opts;
   assignmentsList.replaceChildren();
 
-  if (!items.length) {
-    renderNotice(
-      assignmentsList,
-      bucket === 'past' ? 'Nothing here yet' : 'All clear',
-      bucket === 'past'
-        ? 'No past assignments in your active courses.'
-        : 'Nothing due. Enjoy it.'
-    );
-    return;
-  }
+  const tasks = tasksFor(bucket).map((t) => ({ ...t, isTask: true }));
+  const all = [...items, ...tasks];
+  sortByDue(all, bucket === 'past' ? 'desc' : 'asc');
 
-  for (const a of items) assignmentsList.append(assignmentCard(a));
+  if (!all.length) {
+    if (noCourses) {
+      renderNotice(assignmentsList, 'No active courses', 'Nothing to pull assignments from yet.');
+    } else {
+      renderNotice(
+        assignmentsList,
+        bucket === 'past' ? 'Nothing here yet' : 'All clear',
+        bucket === 'past'
+          ? 'No past assignments in your active courses.'
+          : 'Nothing due. Enjoy it.'
+      );
+    }
+  }
+  // After renderNotice, which clears them: an empty list can still gain a task.
+  lastAssignments = items;
+  lastRender = opts;
+  if (!all.length) return;
+
+  for (const a of all) assignmentsList.append(a.isTask ? taskCard(a) : assignmentCard(a));
 
   if (failed > 0) {
     const note = document.createElement('p');
@@ -349,6 +373,56 @@ function assignmentCard(a) {
   return card;
 }
 
+/**
+ * One the user added by hand. There is nothing on Canvas to link to, so the
+ * card is not a link; instead its status is a button that ticks it off, and a
+ * trash button — revealed on hover, as on bookmarks — deletes it.
+ */
+function taskCard(t) {
+  const card = div('card card--task');
+
+  const title = div('card-title', t.title);
+  title.title = t.title;
+
+  const due = t.dueAt ? `Due ${dueFmt.format(new Date(t.dueAt))}` : 'No due date';
+  const course = t.courseCode || t.courseName;
+  const meta = div('card-meta', course ? `${course} · ${due}` : due);
+  meta.title = t.courseName ? `${t.courseName} · ${due}` : due;
+
+  const foot = div('card-foot');
+  const st = t.done ? { cls: 'done', label: 'Done' }
+    : t.dueAt && new Date(t.dueAt) < new Date() ? { cls: 'late', label: 'Overdue' }
+    : { cls: 'due', label: 'To do' };
+  const status = document.createElement('button');
+  status.type = 'button';
+  status.className = `status status--${st.cls} status-toggle`;
+  status.setAttribute('aria-pressed', String(Boolean(t.done)));
+  status.title = t.done ? 'Mark as not done' : 'Mark as done';
+  const dot = document.createElement('i');
+  dot.className = 'dot';
+  status.append(dot, document.createTextNode(st.label));
+  status.addEventListener('click', () => toggleTask(t.id));
+
+  const del = document.createElement('button');
+  del.type = 'button';
+  del.className = 'task-remove';
+  del.setAttribute('aria-label', `Remove ${t.title}`);
+  const img = document.createElement('img');
+  img.src = 'assets/trash.svg';
+  img.alt = '';
+  del.append(img);
+  del.addEventListener('click', () => removeTask(t.id));
+
+  foot.append(status, del);
+  card.append(title, meta, foot);
+  return card;
+}
+
+/** Called when the user adds, ticks off or removes one of their own. */
+function refreshAssignments() {
+  if (lastAssignments) renderAssignments(lastAssignments, lastRender);
+}
+
 /** Maps Canvas submission state onto the three dot colours. */
 function statusOf(a) {
   const types = a.submissionTypes;
@@ -372,46 +446,60 @@ function statusOf(a) {
 
 function renderClasses(courses) {
   lastCourses = courses;
-  setCourses(courses);          // the add dialog picks its options from these
+  setCourses(courses);          // the add dialogs pick their options from these
+  setTaskCourses(courses);
   classesList.replaceChildren();
 
-  const current = currentClass();
-  nowKey = keyOf(current);
+  const upcoming = upcomingClasses();
+  nowKey = keyOf(upcoming);
   classesReady = true;
 
-  if (!courses.length && !current) {
+  if (!courses.length && !upcoming.length) {
     renderNotice(classesList, 'No active courses', 'Canvas shows no courses in progress.');
     return;
   }
 
+  // Scheduled classes come first, in the order they next meet, with the
+  // nearest in the Now/Next outline. Each one's Canvas card is moved up rather
+  // than copied, so the panel never lists the same course twice.
   let rest = courses;
-  if (current) {
-    // The scheduled class's own card is hoisted to the top rather than copied,
-    // so the panel never lists the same course twice.
-    const course = courses.find((c) => c.id === current.entry.courseId);
-    if (course) rest = courses.filter((c) => c !== course);
-    classesList.append(bracket(
-      current,
-      course ? classCard(course, current.entry) : customClassCard(current.entry)
-    ));
-  }
+  upcoming.forEach((item, i) => {
+    const course = courses.find((c) => c.id === item.entry.courseId);
+    if (course) rest = rest.filter((c) => c !== course);
+    const when = i === 0 ? formatRange(item.entry) : whenLabel(item);
+    const card = course ? classCard(course, when) : customClassCard(item.entry, when);
+    classesList.append(i === 0 ? bracket(item, card) : card);
+  });
 
+  if (!rest.length) return;
+  // Only a heading when there is something above to set the rest apart from.
+  if (upcoming.length) classesList.append(div('cards-heading', 'Other Classes'));
   for (const c of rest) classesList.append(classCard(c));
 }
 
-/** The outline the design draws around the class that is on now, or is next. */
-function bracket(current, card) {
+/**
+ * The outline the design draws around the class that is on now, or is next.
+ * A next class on another day says which, rather than a bare "Next".
+ */
+function bracket(item, card) {
   const box = document.createElement('fieldset');
   box.className = 'now';
   const legend = document.createElement('legend');
   legend.className = 'now-legend';
-  legend.textContent = current.state === 'now' ? 'Now' : 'Next';
+  legend.textContent = item.state === 'now' ? 'Now' : dayLabel(item) || 'Next';
   box.append(legend, card);
   return box;
 }
 
-/** @param {object} [entry] the schedule entry, when this is the bracketed card */
-function classCard(c, entry) {
+/** "10:00–10:50" today, "Tomorrow · 10:00–10:50" or "Friday · …" after. */
+function whenLabel(item) {
+  const day = dayLabel(item);
+  const range = formatRange(item.entry);
+  return day ? `${day} · ${range}` : range;
+}
+
+/** @param {string} [when] the meeting time, for a scheduled class's card */
+function classCard(c, when) {
   const card = link(c.url, 'card');
   const row = div('card-row');
   const title = div('card-title', c.name);
@@ -423,34 +511,35 @@ function classCard(c, entry) {
     row.append(div('grade', label));
   }
 
-  // The bracketed card exists to answer "when", so its meta line gives the
-  // hour rather than repeating the course code.
-  card.append(row, div('card-meta', entry ? formatRange(entry) : c.code || 'Course'));
+  // A scheduled class's card exists to answer "when", so its meta line gives
+  // the meeting rather than repeating the course code.
+  card.append(row, div('card-meta', when || c.code || 'Course'));
   return card;
 }
 
 /** A class typed in by hand has no Canvas course behind it, so nothing to link. */
-function customClassCard(entry) {
+function customClassCard(entry, when) {
   const card = div('card');
   const row = div('card-row');
   const title = div('card-title', entry.name);
   title.title = entry.name;
   row.append(title);
-  card.append(row, div('card-meta', formatRange(entry)));
+  card.append(row, div('card-meta', when));
   return card;
 }
 
-/* The bracket has to move on its own as the day goes by — a pinned new tab can
- * outlive several classes. Re-render only when the answer actually changes, so
- * a tab left open all afternoon is not rebuilding the panel twice a minute. */
+/* The list has to move on its own as the day goes by — a pinned new tab can
+ * outlive several classes, and midnight turns "Tomorrow" into today. Re-render
+ * only when the answer actually changes, so a tab left open all afternoon is
+ * not rebuilding the panel twice a minute. */
 const NOW_TICK_MS = 30_000;
 
-function keyOf(current) {
-  return current ? `${current.entry.id}:${current.state}` : '';
+function keyOf(upcoming) {
+  return upcoming.map((u) => `${u.entry.id}:${u.state}:${u.ahead}`).join(',');
 }
 
 function tickNow() {
-  if (!classesReady || keyOf(currentClass()) === nowKey) return;
+  if (!classesReady || keyOf(upcomingClasses()) === nowKey) return;
   renderClasses(lastCourses);
 }
 
@@ -465,6 +554,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 function renderNotice(target, heading, body, action) {
+  if (target === assignmentsList) lastAssignments = null;
   target.replaceChildren();
   const box = div('notice');
   const h = document.createElement('strong');

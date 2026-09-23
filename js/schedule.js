@@ -10,6 +10,7 @@
 import {
   getSchedule, saveSchedule, MAX_CLASSES_PER_DAY,
 } from './store.js';
+import { anchorTo } from './anchor.js';
 
 /** Monday first, matching the row order the design draws. */
 export const DAY_NAMES = [
@@ -52,34 +53,58 @@ export function getEntries() {
 /* ------------------------------------------------------------------ */
 
 /**
- * The class to highlight in the Classes panel: the one in progress, or failing
- * that the next one coming up — scanning forward through the week and wrapping
- * around, so a single Monday-morning class is still "next" on Friday night.
+ * Every scheduled class in the order it next meets: the one in progress first,
+ * then forward through the week, wrapping around so a single Monday-morning
+ * class is still coming up on Friday night. A class that meets several times a
+ * week appears once, at its nearest meeting — the Classes panel lists courses,
+ * not sessions. The first item is the one the panel brackets.
  *
- * @returns {{entry: object, state: 'now'|'next'}|null}
+ * `ahead` is how many days away the meeting is: 0 today, 7 for a class that
+ * met earlier today and next meets a week from now.
+ *
+ * @returns {Array<{entry: object, state: 'now'|'next', ahead: number}>}
  */
-export function currentClass(now = new Date()) {
-  if (!list.length) return null;
-
+export function upcomingClasses(now = new Date()) {
   const today = weekday(now);
   const minutes = now.getHours() * 60 + now.getMinutes();
-  const todays = onDay(today);
+  const out = [];
+  const seen = new Set();
+  const push = (entry, state, ahead) => {
+    const key = classKey(entry);
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push({ entry, state, ahead });
+  };
 
+  const todays = onDay(today);
   for (const entry of todays) {
     if (toMinutes(entry.start) <= minutes && minutes < toMinutes(entry.end)) {
-      return { entry, state: 'now' };
+      push(entry, 'now', 0);
     }
   }
   for (const entry of todays) {
-    if (toMinutes(entry.start) > minutes) return { entry, state: 'next' };
+    if (toMinutes(entry.start) > minutes) push(entry, 'next', 0);
   }
   // Seven, not six: the last step comes back round to today, which is what
-  // makes a lone class earlier today read as next week's.
+  // makes a class earlier today read as next week's.
   for (let ahead = 1; ahead <= 7; ahead++) {
-    const [first] = onDay((today + ahead) % 7);
-    if (first) return { entry: first, state: 'next' };
+    for (const entry of onDay((today + ahead) % 7)) push(entry, 'next', ahead);
   }
-  return null;
+  return out;
+}
+
+/** The class an entry is a meeting of: its Canvas course, else its name. */
+function classKey(entry) {
+  return entry.courseId != null
+    ? `course:${entry.courseId}`
+    : `name:${entry.name.trim().toLowerCase()}`;
+}
+
+/** '' for today, then "Tomorrow", then the weekday's name. */
+export function dayLabel({ entry, ahead }) {
+  if (ahead === 0) return '';
+  if (ahead === 1) return 'Tomorrow';
+  return DAY_NAMES[entry.day];
 }
 
 /** JS weeks start on Sunday; ours start on Monday. */
@@ -336,7 +361,7 @@ function openDialog(day, anchor) {
 
   document.body.append(form);
   dialog = { form, day };
-  position(form, anchor);
+  anchorTo(form, anchor);
   (nameField.hidden ? picker : name).focus();
 
   // Deferred a tick so the click that opened the dialog does not close it.
@@ -405,34 +430,6 @@ function timeInput(label, value) {
   el.value = value;
   el.setAttribute('aria-label', label);
   return el;
-}
-
-/**
- * Anchored under the button that opened it, flipped above when the window has
- * no room below — which is the usual case, since the week view sits against
- * the bottom edge of the screen.
- */
-function position(form, anchor) {
-  const margin = 12;
-  const box = form.getBoundingClientRect();
-  const at = anchor.getBoundingClientRect();
-
-  const left = clamp(
-    at.left + at.width / 2 - box.width / 2,
-    margin,
-    Math.max(margin, window.innerWidth - box.width - margin)
-  );
-  const below = at.bottom + margin;
-  const top = below + box.height > window.innerHeight - margin
-    ? Math.max(margin, at.top - margin - box.height)
-    : below;
-
-  form.style.left = `${Math.round(left)}px`;
-  form.style.top = `${Math.round(top)}px`;
-}
-
-function clamp(value, low, high) {
-  return Math.min(Math.max(value, low), high);
 }
 
 function reposition() {

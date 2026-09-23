@@ -49,7 +49,9 @@ js/newtab.js       entry point, routing, rendering
 js/canvas.js       Canvas REST client: pagination, typed errors
 js/store.js        chrome.storage.local wrapper (settings + cache)
 js/setup.js        onboarding: permission request, login window, token fallback
-js/schedule.js     the week view, and which class is on now or next
+js/schedule.js     the week view, and the order classes next meet in
+js/tasks.js        the user's own assignments and their add dialog
+js/anchor.js       places a dialog under the button that opened it
 js/search.js       search bar
 js/bookmarks.js    the tile row and its add dialog
 preview.dev.html   local design harness — see below. Not needed at runtime.
@@ -124,13 +126,25 @@ All seven days render. The container is sized for the five the design draws, so
 Saturday and Sunday sit below the fold — deliberate: it keeps every row at the
 proportion drawn rather than squeezing two more into the same height.
 
-`currentClass()` picks the entry to bracket: one in progress reads **Now**, else
-the next one coming up reads **Next**, scanning forward through the week and
-wrapping around. That card is hoisted to the top of the Classes list rather than
-copied, so the panel never lists the same course twice, and its meta line gives
-the hour instead of repeating the course code. A 30-second tick re-renders only
-when the answer actually changes, so a pinned tab isn't rebuilding the panel
-twice a minute.
+`upcomingClasses()` orders the Classes panel: every scheduled class once, at its
+next meeting, scanning forward through the week and wrapping around. The first
+is bracketed — **Now** if it is in progress, **Next** if later today, otherwise
+**Tomorrow** or the weekday's name — and the rest follow with the same day
+prefix on their meta line (`Tomorrow · 10:00–10:50`). Canvas courses with no
+scheduled meeting come last, under an **Other Classes** heading. Scheduled
+cards are moved up rather than copied, so the panel never lists the same course
+twice. A 30-second tick re-renders only when the order or a label actually
+changes, so a pinned tab isn't rebuilding the panel twice a minute.
+
+### Your own assignments
+
+The **+** at the end of the Upcoming/Past pill adds an assignment Canvas doesn't know about —
+name, an optional class, and a due date and time (blank date = no due date).
+They're stored locally under `tasks`, merged into the list by due date, and
+follow Canvas's bucket rule: past once the due time has gone by. Their cards
+aren't links; the status (**To do** / **Overdue** / **Done**) is a button that
+ticks them off, and a trash button appears on hover. Like the schedule, they
+survive Disconnect, and Reset leaves them alone.
 
 New users land in the week view straight after connecting Canvas, with a one-time
 line explaining what to add, why, and how to leave. An empty schedule is a fine

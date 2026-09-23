@@ -71,7 +71,8 @@ a.card:active,
 .bookmark-add img,
 .settings-btn img,
 .bookmark-remove img,
-.week-chip-remove img {
+.week-chip-remove img,
+.task-remove img {
   display: block;
   width: 100%;
   height: 100%;
@@ -578,6 +579,44 @@ a.card:active,
   transition: background 140ms ease, transform 140ms ease;
 }
 
+/* ---------- Add-assignment button ---------- */
+/* Rides in the Upcoming/Past track as a third, round segment. The tabs sit in
+   their own row inside it so the tablist holds only tabs. */
+.pill-tabs {
+  display: flex;
+  align-items: stretch;
+  gap: var(--pill-gap);
+}
+
+.pill-add {
+  flex: none;
+  /* A circle on the track's inner height. With no margin of its own it sits
+     --pill-pad in from the track's end on every side, so its curve runs
+     concentric with the track's rounded end. */
+  width: calc(var(--pill-h) - 2 * var(--pill-pad) - 2 * var(--pill-border-w));
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-pill);
+  background: none;
+  color: var(--ink-on-glass);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: background 140ms ease;
+}
+.pill-add:hover,
+.pill-add[aria-expanded='true'] { background: var(--glass-hover); }
+
+/* Painted in currentColor rather than as an <img>, so the glyph follows the
+   pill labels' ink in both themes — the SVG itself is white-only. */
+.pill-add-icon {
+  width: 44%;
+  height: 44%;
+  background: currentColor;
+  -webkit-mask: url('../assets/plus-24.svg') center / contain no-repeat;
+  mask: url('../assets/plus-24.svg') center / contain no-repeat;
+}
+
 /* ============================================================
    Card lists
    ============================================================ */
@@ -698,6 +737,48 @@ a.card:active,
   color: var(--ink-on-glass);
   text-shadow: var(--shadow-text);
 }
+
+/* The "Other Classes" divider under the scheduled ones. Set like the Now/Next
+   legend and indented to its text, so the two read as the same voice. */
+.cards-heading {
+  flex: none;
+  margin-top: calc(4px * var(--ui-scale));
+  padding-left: calc(var(--now-legend-indent) + var(--now-legend-pad-x));
+  font-family: var(--font-display);
+  font-size: var(--fs-body);
+  line-height: 1;
+  color: var(--ink-on-glass);
+  text-shadow: var(--shadow-text);
+}
+
+/* ---------- The user's own assignments ---------- */
+/* Not links, so the status is the control: it ticks the task off. */
+.status-toggle {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+}
+.status-toggle:hover { text-decoration: underline; }
+
+/* Revealed on hover, as on bookmarks and week chips, but sitting in the foot
+   rather than hanging off a corner: the scrolling list would clip it there. */
+.task-remove {
+  flex: none;
+  width: calc(22px * var(--ui-scale));
+  height: calc(22px * var(--ui-scale));
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 160ms ease, transform 120ms ease;
+}
+.card--task:hover .task-remove,
+.card--task:focus-within .task-remove { opacity: 1; }
+.task-remove:hover { transform: scale(1.08); }
+.task-remove:active { transform: scale(0.96); }
 
 /* ---------- Skeleton / empty / error ---------- */
 .card.is-skeleton {
@@ -1142,8 +1223,8 @@ a.card:active,
 @media (prefers-reduced-motion: reduce) {
   .bookmark-link, .bookmark-add, .bookmark-remove,
   .bm-dialog-add, .cd-add,
-  .head-btn, .settings-btn, .set-btn,
-  .week-chip-remove, .week-add { transition: none; }
+  .head-btn, .pill-add, .settings-btn, .set-btn,
+  .week-chip-remove, .week-add, .task-remove { transition: none; }
 
   /* Swap in place. Not a cross-fade: fading a face breaks the glass inside it
      (see .face). inert (set in js/newtab.js) keeps the hidden ones inert. */

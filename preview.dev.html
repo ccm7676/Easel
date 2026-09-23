@@ -75,11 +75,20 @@
         <section class="panel glass-soft" aria-labelledby="assignments-heading">
           <header class="panel-head">
             <h2 class="panel-title" id="assignments-heading">Assignments</h2>
-            <div class="pills" role="tablist" aria-label="Assignment range">
-              <button class="pill is-selected" id="pill-upcoming" role="tab"
-                      aria-selected="true" data-bucket="future" type="button">Upcoming</button>
-              <button class="pill" id="pill-past" role="tab"
-                      aria-selected="false" data-bucket="past" type="button">Past</button>
+            <!-- One track, two controls: the tabs, and the plus that opens the
+                 add dialog in js/tasks.js. The tablist is its own element so the
+                 plus is not announced as a third tab. -->
+            <div class="pills">
+              <div class="pill-tabs" role="tablist" aria-label="Assignment range">
+                <button class="pill is-selected" id="pill-upcoming" role="tab"
+                        aria-selected="true" data-bucket="future" type="button">Upcoming</button>
+                <button class="pill" id="pill-past" role="tab"
+                        aria-selected="false" data-bucket="past" type="button">Past</button>
+              </div>
+              <button class="pill-add" id="add-task-btn" type="button"
+                      aria-label="Add an assignment" aria-expanded="false">
+                <span class="pill-add-icon" aria-hidden="true"></span>
+              </button>
             </div>
           </header>
           <div class="cards" id="assignments-list" role="tabpanel"></div>
@@ -247,6 +256,12 @@
   const BAG = VIEW === 'setup' ? {} : {
     settings: { origin: 'https://demo.instructure.com', token: 'stub' },
     schedule: SCHEDULE,
+    tasks: [
+      { id: 't1', title: 'Jazz Ensemble — learn the chart', courseId: null, courseName: '',
+        courseCode: '', dueAt: iso(0.6), done: false },
+      { id: 't2', title: 'Printed worksheet', courseId: 2, courseName: 'Linear Algebra',
+        courseCode: 'MATH 221', dueAt: iso(3), done: true },
+    ],
     /* ?view=onboard replays the one-time prompt that follows a fresh connect. */
     scheduleOnboarded: VIEW !== 'onboard',
   };

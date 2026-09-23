@@ -212,8 +212,9 @@ export async function getAssignments(settings, courses, bucket) {
   return { items, failed };
 }
 
-/** Undated assignments always sink to the bottom, whichever direction we sort. */
-function sortByDue(items, direction) {
+/** Undated assignments always sink to the bottom, whichever direction we sort.
+ *  Exported for newtab.js, which merges the user's own assignments in. */
+export function sortByDue(items, direction) {
   const sign = direction === 'desc' ? -1 : 1;
   items.sort((a, b) => {
     if (!a.dueAt && !b.dueAt) return a.title.localeCompare(b.title);

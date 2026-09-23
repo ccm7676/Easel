@@ -4,6 +4,7 @@ const SETTINGS_KEY = 'settings';
 const CACHE_PREFIX = 'cache:';
 const BOOKMARKS_KEY = 'bookmarks';
 const SCHEDULE_KEY = 'schedule';
+const TASKS_KEY = 'tasks';
 const ONBOARDED_KEY = 'scheduleOnboarded';
 const PREFS_KEY = 'prefs';
 const BACKDROP_KEY = 'backdrop';
@@ -87,6 +88,23 @@ export async function getSchedule() {
 
 export async function saveSchedule(list) {
   await chrome.storage.local.set({ [SCHEDULE_KEY]: list });
+}
+
+/**
+ * Assignments the user added by hand — work Canvas does not know about. Each is
+ *   { id, title, courseId: number|null, courseName, courseCode, dueAt: ISO|null, done }
+ * Like schedule entries, the course fields are a snapshot so the card reads the same
+ * before courses load or after the course is gone. Survives Disconnect.
+ * @returns {Promise<Array<object>>}
+ */
+export async function getTasks() {
+  const bag = await chrome.storage.local.get(TASKS_KEY);
+  const list = bag[TASKS_KEY];
+  return Array.isArray(list) ? list : [];
+}
+
+export async function saveTasks(list) {
+  await chrome.storage.local.set({ [TASKS_KEY]: list });
 }
 
 /** The settings panel's Reset. Leaves the onboarding flag alone: the user
