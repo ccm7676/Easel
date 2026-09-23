@@ -43,7 +43,6 @@
   /* Pill labels, card titles, class chips and the Now/Next legend. */
   --fs-body: calc(16px * var(--ui-scale));
   --fs-search: calc(22px * var(--ui-scale));
-  --fs-dialog: calc(20px * var(--ui-scale));
   /* Floored: below ~11px this stops being comfortably readable. */
   --fs-meta: max(11px, calc(13px * var(--ui-scale)));
 
@@ -53,16 +52,14 @@
   --glass-hover: rgba(255, 255, 255, 0.55);   /* any glass tile under the pointer */
   --glass-border: rgba(255, 255, 255, 0.5);
   --glass-blur: calc(30px * var(--ui-scale));
-  /* Heavier than --glass-blur, for the dialogs that stack over other glass. */
-  --blur-heavy: calc(50px * var(--ui-scale));
-  /* Opaque white: dialog strokes, solid buttons, the selected pill. */
+  /* Opaque white: solid buttons, the selected pill, the draft save tick. */
   --solid: #fff;
 
   /* Stroke widths are unscaled: a hairline that shrinks with the scale stops
      resolving to whole device pixels. */
   --glass-border-w: 2.5px;
   --pill-border-w: 2px;
-  --stroke-w: 3px;                            /* dialogs, Now/Next bracket */
+  --stroke-w: 3px;                            /* Now/Next bracket, drafts */
 
   /* ---------- Radii ---------- */
   --r-outer: calc(50px * var(--ui-scale));
@@ -91,41 +88,22 @@
      proportion of that size (see .bookmark-remove). */
   --bm-del: calc(29.09px * var(--ui-scale));
   --fs-bm-mono: calc(34px * var(--ui-scale));
-  /* The add-bookmark dialog sits under the tile row, tighter than the gap
-     between tiles. */
-  --bm-dialog-gap: calc(11.01px * var(--ui-scale));
 
-  /* ---------- Dialogs ----------
-     Figma node 46:217 (add bookmark), measured at 1:1 against the 1512x982
-     frame. The card is a flex column, so the vertical metrics below are the
-     gaps *between* its parts rather than absolute offsets; with the error line
-     hidden they add back up to the design's 145.186 height.
+  /* ---------- Drafts ----------
+     Not in the design. What the plus buttons open instead of dialogs: an
+     editable copy of the thing being added, in its own place (see Drafts in
+     newtab.css). Built from the card, chip and tile metrics; these are all
+     they add. */
+  --draft-save: calc(26px * var(--ui-scale));      /* the round save tick */
+  --draft-chev: calc(9px * var(--ui-scale));
+  /* Wider than a saved chip: it holds two time chips and the tick. */
+  --week-draft-w: calc(250px * var(--ui-scale));
+  --bm-draft-w: calc(330px * var(--ui-scale));
+  --bm-draft-btn-h: calc(44px * var(--ui-scale));
+  --fs-bm-draft: calc(20px * var(--ui-scale));
 
-     Several are already net of the 3px --stroke-w: the card is border-box, so
-     padding is measured from inside the stroke while Figma measures from
-     outside it (--dialog-pad-t is the design's 24.31 - 3, --dialog-pad-b its
-     17.29 - 3; likewise --dialog-pad-x and the bar's two paddings).
-
-     The add-class dialog is not in the design; it reuses every one of these
-     and only adds its own width and field row. */
-  --dialog-w: calc(393.903px * var(--ui-scale));
-  --dialog-pad-x: calc(11.53px * var(--ui-scale));
-  --dialog-pad-t: calc(21.31px * var(--ui-scale));
-  --dialog-pad-b: calc(14.29px * var(--ui-scale));
-  /* The title is indented past the bar's left edge, not flush with it. */
-  --dialog-title-indent: calc(15.59px * var(--ui-scale));
-  --dialog-title-gap: calc(21.38px * var(--ui-scale));
-
-  --dialog-bar-h: calc(58.208px * var(--ui-scale));
-  --dialog-bar-pad-l: calc(31.08px * var(--ui-scale));
-  --dialog-bar-pad-r: calc(4.25px * var(--ui-scale));
-  --dialog-btn-w: calc(79.207px * var(--ui-scale));
-  --dialog-btn-h: calc(44.989px * var(--ui-scale));
-
-  /* Add-class dialog and setup card: wide enough for a row of three fields. */
-  --dialog-wide-w: calc(460px * var(--ui-scale));
-  --dialog-field-h: calc(46px * var(--ui-scale));
-  --dialog-gap: calc(9px * var(--ui-scale));
+  /* The setup card: wide enough for its fields and notes. */
+  --setup-w: calc(460px * var(--ui-scale));
 
   /* ---------- Container + panels ---------- */
   --container-w: calc(942px * var(--ui-scale));
@@ -208,19 +186,16 @@
        --ink-on-glass: #fff;  --ink-on-glass-dim: rgba(255,255,255,.72);
        --ink-on-glass-faint: rgba(255,255,255,.6);
        --pill-border-c: #fff; --shadow-text: 0 1px 3px rgba(0,0,0,.35);
-       --dialog-placeholder: rgba(255,255,255,.55);
      The card ink never changes: cards are opaque enough to stay light. */
   --ink-on-glass: rgba(0, 0, 0, 0.82);
   --ink-on-glass-dim: rgba(0, 0, 0, 0.62);
   --ink-on-glass-faint: rgba(0, 0, 0, 0.45);
   --pill-border-c: rgba(255, 255, 255, 0.60);
-  /* The dialogs' placeholder, which sits on a white-tinted glass of its own
-     rather than on the container — hence its own value. */
-  --dialog-placeholder: #838080;
   --shadow-text: none;   /* a dark halo under dark ink just smudges it */
 
   --ink-on-card: rgba(0, 0, 0, 0.82);
   --ink-on-card-dim: rgba(0, 0, 0, 0.6);
+  --ink-on-card-faint: rgba(0, 0, 0, 0.4);    /* placeholders in a draft */
   /* Ink on --solid: the selected pill and the white buttons. White is white in
      either theme, so unlike the two above these never change. */
   --ink-on-solid: rgba(0, 0, 0, 0.82);
@@ -290,10 +265,10 @@
   --ink-on-glass-dim: rgba(255, 255, 255, 0.66);
   --ink-on-glass-faint: rgba(255, 255, 255, 0.48);
   --pill-border-c: #fff;
-  --dialog-placeholder: rgba(255, 255, 255, 0.5);
 
   --ink-on-card: rgba(255, 255, 255, 0.9);
   --ink-on-card-dim: rgba(255, 255, 255, 0.62);
+  --ink-on-card-faint: rgba(255, 255, 255, 0.42);
 
   --icon-filter: invert(1);
   --backdrop-filter: brightness(0.8) saturate(1.1);

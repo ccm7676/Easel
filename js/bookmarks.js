@@ -1,25 +1,23 @@
 /* Bookmarks — up to five tiles under the search bar. A set tile shows the
- * site's favicon; a single trailing tile with a plus opens the add dialog,
- * and disappears once the row is full. */
+ * site's favicon; a single trailing tile with a plus widens into an address
+ * bar to add one, and disappears once the row is full. */
 
 import { getBookmarks, saveBookmarks, MAX_BOOKMARKS } from './store.js';
+import { discardButton, flag, dismissWhenUntouched, leave } from './draft.js';
 
 const row = document.getElementById('bookmarks');
 
 let list = [];
-let popover = null;
+let draft = null;            // { wrap, release } while the plus tile is a bar
 
 export async function initBookmarks() {
   list = await getBookmarks();
   render();
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') closePopover();
-  });
 }
 
 /** Re-reads the store, after the settings panel has cleared it. */
 export async function reloadBookmarks() {
-  closePopover();
+  closeBookmarkDraft({ animate: false });
   list = await getBookmarks();
   render();
 }
@@ -36,8 +34,8 @@ function render() {
   list.forEach((bm, i) => row.append(tile(bm, i)));
   // One plus tile at most, and none once the row is full. Because .bookmarks
   // hugs its contents and is centred by a translate, dropping it re-centres
-  // the row for free.
-  if (list.length < MAX_BOOKMARKS) row.append(addTile());
+  // the row for free — and widening it into the draft does the same.
+  if (list.length < MAX_BOOKMARKS) row.append(draft ? draft.wrap : addTile());
 }
 
 function tile(bm, index) {
@@ -80,7 +78,7 @@ function addTile() {
   img.src = 'assets/plus.svg';
   img.alt = '';
   btn.append(img);
-  btn.addEventListener('click', () => (popover ? closePopover() : openPopover()));
+  btn.addEventListener('click', () => openDraft(btn));
   return btn;
 }
 
@@ -167,8 +165,7 @@ function monogram(bm) {
 /*  Add / remove                                                       */
 /* ------------------------------------------------------------------ */
 
-async function add(raw) {
-  const url = normalizeUrl(raw);
+async function add(url) {
   list = [...list, { url, title: labelFor(url) }];
   await saveBookmarks(list);
   render();
@@ -213,73 +210,95 @@ function labelFor(url) {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Add dialog                                                         */
+/*  Draft                                                              */
 /* ------------------------------------------------------------------ */
 
-function openPopover() {
+/* The plus tile grows into an address bar in its own place in the row,
+ * outlined like the other drafts (see js/draft.js), with the search bar's
+ * arrangement of a field and a button inside one shape. Unlike the card and
+ * chip drafts it can fail in several ways worth explaining, so its message
+ * hangs underneath on a pill of glass. */
+
+function openDraft(btn) {
+  closeBookmarkDraft();
+
+  const wrap = document.createElement('div');
+  wrap.className = 'bookmark';
+
   const form = document.createElement('form');
-  form.className = 'bm-dialog';
+  form.className = 'bookmark-draft glass';
   form.noValidate = true;
-
-  const title = document.createElement('div');
-  title.className = 'bm-dialog-title';
-  title.textContent = 'Add Bookmark';
-
-  // The address field and the Add button share one capsule, as the search bar
-  // does, so the button has to be a child of the bar rather than a sibling.
-  const bar = document.createElement('div');
-  bar.className = 'bm-dialog-bar';
+  form.setAttribute('aria-label', 'New bookmark');
 
   const input = document.createElement('input');
-  input.className = 'bm-dialog-input';
+  input.className = 'bookmark-draft-input';
   input.type = 'text';
-  input.placeholder = 'www.example.com';
+  input.placeholder = 'example.com';
   input.spellcheck = false;
   input.autocomplete = 'off';
   input.setAttribute('aria-label', 'Bookmark web address');
 
   const save = document.createElement('button');
-  save.className = 'bm-dialog-add';
+  save.className = 'bookmark-draft-add';
   save.type = 'submit';
   save.textContent = 'Add';
 
-  bar.append(input, save);
-
   const error = document.createElement('p');
-  error.className = 'bm-dialog-error';
+  error.className = 'bookmark-draft-error glass';
+  error.id = 'bookmark-draft-error';
+  error.setAttribute('role', 'alert');
   error.hidden = true;
+  input.setAttribute('aria-describedby', error.id);
+  input.addEventListener('input', () => { error.hidden = true; });
 
-  form.append(title, bar, error);
+  form.append(input, save);
+  wrap.append(
+    form,
+    error,
+    discardButton('bookmark-remove', 'Discard new bookmark', () => closeBookmarkDraft())
+  );
+
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
+    let url;
     try {
-      await add(input.value);
-      closePopover();
+      url = normalizeUrl(input.value);
     } catch (err) {
       error.textContent = err.message;
       error.hidden = false;
-      input.focus();
+      return flag(input);
     }
+    // No exit here: the new tile takes the draft's place as the row redraws.
+    closeBookmarkDraft({ animate: false });
+    await add(url);
+    row.querySelector('.bookmark-add')?.focus({ preventScroll: true });
   });
 
-  row.parentElement.append(form);
-  popover = form;
+  draft = { wrap, release: dismissWhenUntouched(wrap, closeBookmarkDraft) };
+  btn.replaceWith(wrap);
   input.focus();
-
-  // Deferred a tick so the click that opened the dialog does not close it.
-  setTimeout(() => document.addEventListener('pointerdown', onOutside), 0);
 }
 
-function closePopover() {
-  if (!popover) return;
-  document.removeEventListener('pointerdown', onOutside);
-  popover.remove();
-  popover = null;
-}
+/**
+ * The bar narrows back into a tile, and the plus tile is put back in its
+ * place — not a full render(), which would swap out the tile being clicked on.
+ * @param {{animate?: boolean}} [opts]
+ * @returns {boolean} whether there was a draft to close, for the Escape handler in newtab.js
+ */
+export function closeBookmarkDraft({ animate = true } = {}) {
+  if (!draft) return false;
+  const { wrap, release } = draft;
+  const hadFocus = wrap.contains(document.activeElement);
+  release();
+  draft = null;
 
-function onOutside(event) {
-  if (!popover) return;
-  if (popover.contains(event.target)) return;
-  if (event.target.closest('.bookmark-add')) return;   // its own handler toggles
-  closePopover();
+  const restore = () => {
+    if (!wrap.isConnected) return;
+    const btn = addTile();
+    wrap.replaceWith(btn);
+    if (hadFocus) btn.focus({ preventScroll: true });
+  };
+  if (animate) leave(wrap, 'width', restore);
+  else restore();
+  return true;
 }

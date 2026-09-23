@@ -82,9 +82,7 @@ a.card:active,
    so the box must be the full height of its capsule and carry no vertical
    padding of its own — stretching it is what keeps the text on the centre line. */
 .search-input,
-.bm-dialog-input,
-.cd-field > select,
-.cd-field > input {
+.bookmark-draft-input {
   flex: 1 1 auto;
   min-width: 0;
   align-self: stretch;
@@ -237,158 +235,339 @@ a.card:active,
 .week-chip-remove:active { transform: scale(0.96); }
 
 /* ============================================================
-   Dialogs — add bookmark, add class
+   Drafts — adding an assignment, a class, a bookmark
    ============================================================ */
-/* The cards are deliberately not .glass: the design gives them a solid-white
-   stroke and a heavier blur than the glass primitive, so overriding two of
-   that rule's three properties would say less than stating all three here. */
-.bm-dialog,
-.cd-dialog {
-  padding: var(--dialog-pad-t) var(--dialog-pad-x) var(--dialog-pad-b);
-  background: var(--glass-strong);
-  backdrop-filter: blur(var(--blur-heavy));
-  -webkit-backdrop-filter: blur(var(--blur-heavy));
-  border: var(--stroke-w) solid var(--solid);
-  border-radius: var(--r-panel);
-  display: flex;
-  flex-direction: column;
+/* No dialogs: each plus button puts an editable copy of the thing it adds
+   exactly where that thing will appear — a card at the top of Assignments, a
+   chip in the day's row, a widened tile in the bookmark row — outlined in the
+   Now/Next bracket's stroke so it reads as not yet saved. Built by js/tasks.js,
+   js/schedule.js and js/bookmarks.js from the parts in js/draft.js. */
+
+@keyframes draft-in {
+  from { opacity: 0; transform: translateY(calc(-6px * var(--ui-scale))); }
+}
+/* The tile or chip a draft replaces widens into it; --draft-from is its width. */
+@keyframes draft-grow {
+  from { width: var(--draft-from); }
 }
 
-/* Fixed and centred like the row it drops from. */
-.bm-dialog {
-  position: fixed;
-  top: calc(var(--search-top) + var(--search-h) + var(--bm-gap-top)
-            + var(--bm-size) + var(--bm-dialog-gap));
-  left: 50%;
-  transform: translateX(-50%);
-  width: min(var(--dialog-w), 92vw);
-}
-
-/* The design never draws this one, so it is assembled from the add-bookmark
-   dialog's parts. Only the width and the field row are its own, since it asks
-   four questions rather than one. Positioned by js/schedule.js, which anchors
-   it to the add button that opened it and flips it above when there is no
-   room below. */
-.cd-dialog {
-  position: fixed;
-  width: min(var(--dialog-wide-w), 92vw);
-  gap: var(--dialog-gap);
-  z-index: 2;
-}
-
-.bm-dialog-title,
-.cd-title {
-  margin: 0 0 var(--dialog-title-gap) var(--dialog-title-indent);
+/* Fields that are simply text on the card — no box of their own, so a draft
+   looks like the card it will become. */
+.draft-text {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  outline: none;
+  background: none;
   font-family: var(--font-display);
-  font-size: var(--fs-title);
-  line-height: 1;
-  color: var(--ink-on-glass);
-  text-shadow: var(--shadow-text);
+  font-size: var(--fs-body);
+  line-height: 1.25;
+  color: var(--ink-on-card);
+  text-overflow: ellipsis;
 }
-/* Spacing is carried on the title rather than a flex `gap` in the bookmark
-   dialog so that the error line, which is [hidden] until something goes
-   wrong, costs nothing while it is absent. The class dialog does use a gap,
-   so its title gives that much back. */
-.cd-title { margin-bottom: calc(var(--dialog-title-gap) - var(--dialog-gap)); }
+.draft-text::placeholder { color: var(--ink-on-card-faint); }
+.draft-text[aria-invalid='true']::placeholder { color: var(--status-late); }
 
-/* Capsules: the bookmark dialog's one bar, and one per class-dialog field. */
-.bm-dialog-bar,
-.cd-field {
-  background: var(--glass-strong);
-  border: var(--stroke-w) solid var(--solid);
+/* A <select> drawn as its current option and a chevron. field-sizing lets it
+   hug the option rather than the longest one, as a chip should. */
+.draft-select,
+.draft-chip { position: relative; }
+.draft-select > select,
+.draft-chip > select {
+  appearance: none;
+  field-sizing: content;
+  max-width: 100%;
+  margin: 0;
+  padding: 0 calc(var(--draft-chev) + 5px) 0 0;
+  border: 0;
+  outline: none;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+.draft-select > select[aria-invalid='true'] { color: var(--status-late); }
+/* The class picker on the new-class chip. The <select> inherits its font, so
+   the chip's name voice is set here: Maname at the saved chip's size. */
+.draft-select {
+  display: inline-flex;
+  align-self: flex-start;
+  max-width: 100%;
+  min-width: 0;
+  font-family: var(--font-display);
+  font-size: var(--fs-body);
+  line-height: 1.25;
+  color: var(--ink-on-card);
+}
+.draft select option { color: CanvasText; background: Canvas; }
+
+.draft-chev {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  width: var(--draft-chev);
+  height: calc(var(--draft-chev) / 2);
+  transform: translateY(-50%);
+  background: currentColor;
+  opacity: 0.7;
+  -webkit-mask: url('../assets/chevron-down.svg') center / contain no-repeat;
+  mask: url('../assets/chevron-down.svg') center / contain no-repeat;
+  pointer-events: none;
+}
+
+/* The small capsules for class, date and time: the card's meta voice on a
+   faint tint of its own ink, so they read as settable without shouting. */
+.draft-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: calc(5px * var(--ui-scale));
+  min-width: 0;
+}
+
+.draft-chip {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  padding: calc(3px * var(--ui-scale)) calc(9px * var(--ui-scale));
   border-radius: var(--r-pill);
+  background: color-mix(in srgb, var(--ink-on-card) 9%, transparent);
+  font-family: var(--font-ui);
+  font-size: var(--fs-meta);
+  line-height: 1.3;
+  color: var(--ink-on-card-dim);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 140ms ease, color 140ms ease;
+}
+.draft-chip:hover,
+.draft-chip:focus-within {
+  background: color-mix(in srgb, var(--ink-on-card) 16%, transparent);
+  color: var(--ink-on-card);
+}
+.draft-chip:has(:focus-visible) { box-shadow: inset 0 0 0 1.5px var(--ink-on-card-dim); }
+.draft-chip:has([aria-invalid='true']) {
+  color: var(--status-late);
+  box-shadow: inset 0 0 0 1.5px var(--status-late);
+}
+.draft-chip > select { padding-right: calc(var(--draft-chev) + 5px); }
+.draft-chip > .draft-chev { right: calc(9px * var(--ui-scale)); }
+.draft-chip:has(> select) { padding-right: calc(9px * var(--ui-scale)); }
+
+/* A date or time chip's real <input>, invisible and stretched over it: it
+   keeps focus, the arrow keys and its label, and a click opens its picker
+   (see pickerChip() in js/draft.js). The chip only shows its value. */
+.draft-chip > input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+/* The tick that saves. White on every theme, like the selected pill. */
+.draft-save {
+  flex: none;
+  width: var(--draft-save);
+  height: var(--draft-save);
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--solid);
+  color: var(--ink-on-solid);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: transform 120ms ease;
+}
+.draft-save::before {
+  content: '';
+  width: 50%;
+  height: 50%;
+  background: currentColor;
+  -webkit-mask: url('../assets/check.svg') center / contain no-repeat;
+  mask: url('../assets/check.svg') center / contain no-repeat;
+}
+.draft-save:hover { transform: scale(1.08); }
+.draft-save:active { transform: scale(0.96); }
+
+/* ---------- New assignment ---------- */
+/* Above the list rather than in it, so it survives the list re-rendering. */
+.draft--task {
+  flex: none;
+  margin-bottom: var(--card-gap);
+  animation: draft-in 200ms ease-out;
+}
+
+.draft-card {
+  background: var(--card-hover);
+  gap: calc(7px * var(--ui-scale));
+}
+
+.draft-foot {
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: 10px;
 }
-
-/* The Add button sits *inside* the bar, the same arrangement as .searchbar. */
-.bm-dialog-bar {
-  height: var(--dialog-bar-h);
-  padding: 0 var(--dialog-bar-pad-r) 0 var(--dialog-bar-pad-l);
-  backdrop-filter: blur(var(--glass-blur));
-  -webkit-backdrop-filter: blur(var(--glass-blur));
-  gap: calc(10px * var(--ui-scale));
+.draft-hint {
+  min-width: 0;
+  font-size: var(--fs-meta);
+  line-height: 1.3;
+  color: var(--ink-on-card-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
+.draft-actions {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: calc(8px * var(--ui-scale));
+}
+.draft-card .task-remove { opacity: 0.7; }
 
-.cd-field {
+/* On the way out (leave() in js/draft.js): folds shut from the height JS pins
+   it to, and the list below slides up to close the gap. */
+.draft--task.is-leaving {
+  overflow: hidden;
+  margin-bottom: 0;
+  opacity: 0;
+  transform: translateY(calc(-6px * var(--ui-scale)));
+  transition:
+    height 220ms cubic-bezier(0.4, 0, 1, 1),
+    margin-bottom 220ms cubic-bezier(0.4, 0, 1, 1),
+    transform 220ms cubic-bezier(0.4, 0, 1, 1),
+    opacity 160ms ease-in;
+}
+.draft-card .task-remove:hover,
+.draft-card .task-remove:focus-visible { opacity: 1; }
+
+/* ---------- New class ---------- */
+/* Doubled up to outrank .week-chip, which comes later and sets the width. */
+.week-chip.draft--class {
+  --draft-from: var(--week-chip-w);
+  width: var(--week-draft-w);
+  animation: draft-grow 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.draft--class .week-chip-face {
+  flex-direction: row;
+  align-items: center;
+  gap: calc(8px * var(--ui-scale));
+  background: var(--card-hover);
+  box-shadow: inset 0 0 0 var(--stroke-w) var(--ink-on-glass);
+}
+.draft-lines {
   flex: 1 1 auto;
   min-width: 0;
-  height: var(--dialog-field-h);
-  padding: 0 calc(16px * var(--ui-scale));
+  display: flex;
+  flex-direction: column;
+  gap: calc(4px * var(--ui-scale));
+}
+.draft--class .draft-chips { flex-wrap: nowrap; }
+
+/* On the way out: narrows to the plus button's width and fill while its
+   contents fade, so the button that replaces it is already in place. */
+.week-chip.draft--class.is-leaving {
+  width: var(--week-chip-w);
+  transition: width 220ms cubic-bezier(0.4, 0, 1, 1);
+}
+.draft--class.is-leaving .week-chip-face {
+  background: var(--card-fill);
+  box-shadow: inset 0 0 0 0 var(--ink-on-glass);
+  transition: background 220ms ease-in, box-shadow 220ms ease-in;
+}
+.draft--class.is-leaving .week-chip-face > *,
+.draft--class.is-leaving .week-chip-remove {
+  opacity: 0;
+  transition: opacity 120ms ease-in;
+}
+.draft-dash {
+  font-size: var(--fs-meta);
+  color: var(--ink-on-card-dim);
 }
 
-.bm-dialog-input,
-.cd-field > select,
-.cd-field > input { font-size: var(--fs-dialog); }
-.bm-dialog-input::placeholder,
-.cd-field > input::placeholder { color: var(--dialog-placeholder); }
-
-/* Times and the course list are the system face at meta size, for the reason
-   the README gives: Maname's low-contrast numerals get hard to read small,
-   and a native <select>/<input type=time> renders its own furniture anyway. */
-.cd-field > select,
-.cd-field--time > input {
-  font-family: var(--font-ui);
-  font-size: calc(15px * var(--ui-scale) + 1px);
-}
-.cd-field--time { flex: 0 1 auto; }
-.cd-field--time > input { font-variant-numeric: tabular-nums; }
-
-.cd-row {
+/* ---------- New bookmark ---------- */
+/* The field-and-button-in-one-shape of the search bar, at the tile's height. */
+.bookmark-draft {
+  --draft-from: var(--bm-size);
+  width: min(var(--bm-draft-w), 60vw);
+  height: var(--bm-size);
+  padding: 0 calc(10px * var(--ui-scale)) 0 calc(20px * var(--ui-scale));
+  border: var(--stroke-w) solid var(--ink-on-glass);
+  border-radius: var(--r-card);
   display: flex;
   align-items: center;
-  gap: var(--dialog-gap);
+  gap: calc(10px * var(--ui-scale));
+  overflow: hidden;
+  animation: draft-grow 240ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
-.cd-to {
-  flex: none;
-  font-size: var(--fs-meta);
-  color: var(--ink-on-glass-dim);
-  text-shadow: var(--shadow-text);
+/* On the way out: narrows back to a tile, its stroke thinning to the glass
+   border, while the field, button and any message fade. */
+.is-leaving > .bookmark-draft {
+  width: var(--bm-size);
+  border-width: var(--glass-border-w);
+  border-color: var(--glass-border);
+  transition:
+    width 220ms cubic-bezier(0.4, 0, 1, 1),
+    border-color 220ms ease-in,
+    border-width 220ms ease-in;
+}
+.is-leaving > .bookmark-draft > *,
+.is-leaving > .bookmark-draft-error,
+.is-leaving > .bookmark-remove {
+  opacity: 0;
+  transition: opacity 120ms ease-in;
 }
 
-.bm-dialog-add,
-.cd-add {
+.bookmark-draft-input { font-size: var(--fs-bm-draft); }
+.bookmark-draft-input::placeholder { color: var(--ink-on-glass-faint); }
+.bookmark-draft-input[aria-invalid='true'] { color: var(--status-late); }
+
+.bookmark-draft-add {
   flex: none;
-  font-family: var(--font-display);
-  font-size: var(--fs-dialog);
-  line-height: 1;
-  color: var(--ink-on-solid);
-  background: var(--solid);
-  border: var(--stroke-w) solid var(--solid);
+  height: var(--bm-draft-btn-h);
+  padding: calc(4px * var(--ui-scale)) calc(16px * var(--ui-scale)) 0;
+  border: 0;
   border-radius: var(--r-pill);
+  background: var(--solid);
+  color: var(--ink-on-solid);
+  font-family: var(--font-display);
+  font-size: var(--fs-body);
+  line-height: 1;
   cursor: pointer;
-  transition: transform 120ms ease, opacity 120ms ease;
+  transition: transform 120ms ease;
 }
-.bm-dialog-add:hover,
-.cd-add:hover { transform: translateY(-1px); }
-.bm-dialog-add:active,
-.cd-add:active { transform: translateY(0); opacity: 0.85; }
+.bookmark-draft-add:hover { transform: translateY(-1px); }
+.bookmark-draft-add:active { transform: translateY(0); opacity: 0.85; }
 
-.bm-dialog-add {
-  width: var(--dialog-btn-w);
-  height: var(--dialog-btn-h);
-  padding: 0;
-}
-
-.cd-add {
-  min-width: var(--dialog-btn-w);
-  height: var(--dialog-field-h);
-  padding: 0 var(--pill-pad-x);
-}
-
-/* Not in the design, which only draws the resting state — but the dialogs
-   still have to be able to report bad input. Indented to the title's left
-   edge so the card reads as one column when it does appear. */
-.bm-dialog-error,
-.cd-error {
-  margin: 0 0 0 var(--dialog-title-indent);
+/* Hangs under the bar, centred on it. Over the photo rather than on a panel,
+   so it carries its own glass to stay readable. */
+.bookmark-draft-error {
+  position: absolute;
+  top: calc(100% + 10px * var(--ui-scale));
+  left: 50%;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: min(320px, 90vw);
+  margin: 0;
+  padding: calc(7px * var(--ui-scale)) calc(14px * var(--ui-scale));
+  border-radius: var(--r-pill);
   font-size: var(--fs-meta);
   line-height: 1.35;
-  color: var(--ink-on-glass-dim);
+  color: var(--ink-on-glass);
   text-shadow: var(--shadow-text);
+  animation: draft-in 160ms ease-out;
 }
-.bm-dialog-error { margin-top: calc(10px * var(--ui-scale)); }
 
 /* ============================================================
    Container + panels
@@ -615,7 +794,11 @@ a.card:active,
   background: currentColor;
   -webkit-mask: url('../assets/plus-24.svg') center / contain no-repeat;
   mask: url('../assets/plus-24.svg') center / contain no-repeat;
+  transition: transform 180ms ease;
 }
+/* While the draft is open the plus turns to a cross, and pressing it again
+   throws the draft away. */
+.pill-add[aria-expanded='true'] .pill-add-icon { transform: rotate(45deg); }
 
 /* ============================================================
    Card lists
@@ -717,8 +900,10 @@ a.card:active,
    min-inline-size is the one UA default that must go: a fieldset defaults to
    min-content, which stops the bracket ever narrowing with the panel.
    The stroke is drawn on the panel, so it follows the glass ink; the design's
-   #434343 is that same family. */
-.now {
+   #434343 is that same family. The assignment draft borrows it whole, legend
+   and all, as the mark of something not yet saved. */
+.now,
+.draft-bracket {
   flex: none;
   min-inline-size: 0;
   margin: 0;
@@ -975,7 +1160,7 @@ a.card:active,
 }
 
 .setup-card {
-  width: min(var(--dialog-wide-w), 100%);
+  width: min(var(--setup-w), 100%);
   border-radius: var(--r-panel);
   padding: var(--setup-pad);
   display: flex;
@@ -1222,9 +1407,11 @@ a.card:active,
    ============================================================ */
 @media (prefers-reduced-motion: reduce) {
   .bookmark-link, .bookmark-add, .bookmark-remove,
-  .bm-dialog-add, .cd-add,
-  .head-btn, .pill-add, .settings-btn, .set-btn,
-  .week-chip-remove, .week-add, .task-remove { transition: none; }
+  .head-btn, .pill-add, .pill-add-icon, .settings-btn, .set-btn,
+  .week-chip-remove, .week-add, .task-remove,
+  .draft-chip, .draft-save, .bookmark-draft-add { transition: none; }
+  .draft--task, .draft--class, .bookmark-draft,
+  .bookmark-draft-error { animation: none; }
 
   /* Swap in place. Not a cross-fade: fading a face breaks the glass inside it
      (see .face). inert (set in js/newtab.js) keeps the hidden ones inert. */

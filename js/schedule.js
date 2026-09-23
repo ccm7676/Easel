@@ -10,7 +10,9 @@
 import {
   getSchedule, saveSchedule, MAX_CLASSES_PER_DAY,
 } from './store.js';
-import { anchorTo } from './anchor.js';
+import {
+  pickerChip, selectField, saveButton, discardButton, flag, dismissWhenUntouched, leave,
+} from './draft.js';
 
 /** Monday first, matching the row order the design draws. */
 export const DAY_NAMES = [
@@ -20,9 +22,9 @@ export const DAY_NAMES = [
 const weekEl = document.getElementById('week');
 
 let list = [];               // every entry, unsorted
-let courses = [];            // Canvas courses, for the add dialog's picker
+let courses = [];            // Canvas courses, for the draft's picker
 let notify = () => {};       // tells newtab.js the schedule changed
-let dialog = null;
+let draft = null;            // { day, form, release } while a day has a draft chip
 
 export async function initSchedule({ onChange, hour12 = false } = {}) {
   notify = onChange ?? (() => {});
@@ -33,7 +35,7 @@ export async function initSchedule({ onChange, hour12 = false } = {}) {
 
 /** Re-reads the store, after the settings panel has cleared it. */
 export async function reloadSchedule() {
-  closeDialog();
+  closeClassDraft({ animate: false });
   list = await getSchedule();
   render();
   notify();
@@ -154,7 +156,8 @@ export function formatRange(entry) {
   return `${formatTime(entry.start)}–${formatTime(entry.end)}`;
 }
 
-function formatTime(hhmm) {
+/** Also the draft chips' text, here and in js/tasks.js. */
+export function formatTime(hhmm) {
   const [h, m] = hhmm.split(':').map(Number);
   // Any date will do — only the clock face is being formatted.
   const text = timeFmt.format(new Date(2000, 0, 1, h, m));
@@ -184,7 +187,9 @@ function dayRow(day) {
 
   const entries = onDay(day);
   for (const entry of entries) strip.append(chip(entry));
-  if (entries.length < MAX_CLASSES_PER_DAY) strip.append(addButton(day));
+  // The draft stands in for the plus button, so it cannot open on a full day.
+  if (draft?.day === day) strip.append(draft.form);
+  else if (entries.length < MAX_CLASSES_PER_DAY) strip.append(addButton(day));
 
   row.append(label, strip);
   return row;
@@ -231,10 +236,7 @@ function addButton(day) {
   img.src = 'assets/plus-24.svg';
   img.alt = '';
   btn.append(img);
-  btn.addEventListener('click', () => {
-    if (dialog?.day === day) closeDialog();
-    else openDialog(day, btn);
-  });
+  btn.addEventListener('click', () => openDraft(day, btn));
   return btn;
 }
 
@@ -262,138 +264,135 @@ function newId() {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Add dialog                                                         */
+/*  Draft                                                              */
 /* ------------------------------------------------------------------ */
 
-/* The design never draws this, so it is assembled from the add-bookmark
- * dialog's parts — same card, same capsule fields, same white button, same
- * dismiss behaviour. See openPopover() in js/bookmarks.js, which this follows
- * closely enough to be worth reading alongside. */
+/* The day's plus button turns into a chip shaped like the one it will add,
+ * outlined in the Now/Next bracket's stroke: the class on the first line, its
+ * times on the second, a tick to save. The same idea as the assignment and
+ * bookmark drafts — see js/draft.js. It is kept across render(), so removing a
+ * neighbouring chip does not throw away what was typed. */
 
 const CUSTOM = 'custom';
 
-function openDialog(day, anchor) {
-  closeDialog();
+function openDraft(day, btn) {
+  closeClassDraft();
 
   const form = document.createElement('form');
-  form.className = 'cd-dialog';
+  form.className = 'week-chip draft--class';
   form.noValidate = true;
+  form.setAttribute('aria-label', `New class on ${DAY_NAMES[day]}`);
 
-  const title = document.createElement('div');
-  title.className = 'cd-title';
-  title.textContent = `Add a class on ${DAY_NAMES[day]}`;
+  const face = document.createElement('div');
+  face.className = 'week-chip-face';
+
+  const lines = document.createElement('div');
+  lines.className = 'draft-lines';
 
   /* --- which class --- */
-  const pickerField = field();
   const picker = document.createElement('select');
   picker.setAttribute('aria-label', 'Class');
   for (const course of courses) {
     picker.append(new Option(course.name, String(course.id)));
   }
-  picker.append(new Option(
-    courses.length ? 'Something else…' : 'Type a class name…', CUSTOM
-  ));
-  pickerField.append(picker);
+  picker.append(new Option('Something else…', CUSTOM));
+  const pickerField = selectField(picker, 'draft-select');
 
   /* --- ...or a name of your own --- */
-  const nameField = field();
   const name = document.createElement('input');
+  name.className = 'draft-text';
   name.type = 'text';
   name.placeholder = 'Class name';
   name.spellcheck = false;
   name.autocomplete = 'off';
   name.setAttribute('aria-label', 'Class name');
-  nameField.append(name);
-  nameField.hidden = courses.length > 0;
 
+  // With no Canvas courses there is nothing to pick, so it starts as a name.
+  if (!courses.length) picker.value = CUSTOM;
+  pickerField.hidden = picker.value === CUSTOM;
+  name.hidden = !pickerField.hidden;
   picker.addEventListener('change', () => {
-    nameField.hidden = picker.value !== CUSTOM;
-    if (!nameField.hidden) name.focus();
+    if (picker.value !== CUSTOM) return;
+    pickerField.hidden = true;
+    name.hidden = false;
+    name.focus();
   });
 
   /* --- when --- */
   const [startFrom, endFrom] = defaultTimes(day);
-  const startField = field('cd-field--time');
   const start = timeInput('Start time', startFrom);
-  startField.append(start);
-
-  const to = document.createElement('span');
-  to.className = 'cd-to';
-  to.textContent = 'to';
-
-  const endField = field('cd-field--time');
   const end = timeInput('End time', endFrom);
-  endField.append(end);
 
   // The end follows the start at a class-length gap, and is pulled back after
   // the start if it is ever left before it.
+  const setEnd = (value) => {
+    end.value = value;
+    end.dispatchEvent(new Event('input'));   // repaints its chip
+  };
   start.addEventListener('input', () => {
-    if (start.value) end.value = endAfter(start.value);
+    if (start.value) setEnd(endAfter(start.value));
   });
   end.addEventListener('blur', () => {
     if (!start.value) return;
     if (!end.value || toMinutes(end.value) <= toMinutes(start.value)) {
-      end.value = endAfter(start.value);
+      setEnd(endAfter(start.value));
     }
   });
 
-  const save = document.createElement('button');
-  save.className = 'cd-add';
-  save.type = 'submit';
-  save.textContent = 'Add';
+  const times = document.createElement('div');
+  times.className = 'draft-chips';
+  const dash = document.createElement('span');
+  dash.className = 'draft-dash';
+  dash.textContent = '–';
+  times.append(pickerChip(start, formatTime), dash, pickerChip(end, formatTime));
 
-  const when = document.createElement('div');
-  when.className = 'cd-row';
-  when.append(startField, to, endField, save);
+  lines.append(pickerField, name, times);
+  face.append(lines, saveButton(`Add class on ${DAY_NAMES[day]}`));
+  form.append(
+    face,
+    discardButton('week-chip-remove', 'Discard new class', () => closeClassDraft())
+  );
 
-  const error = document.createElement('p');
-  error.className = 'cd-error';
-  error.hidden = true;
-
-  form.append(title, pickerField, nameField, when, error);
   form.addEventListener('submit', (event) => {
     event.preventDefault();
-    const problem = submit(day, { picker, name, start, end });
-    if (!problem) return closeDialog();
-    error.textContent = problem;
-    error.hidden = false;
+    const result = read(day, { picker, name, start, end });
+    if (result.invalid) return flag(result.invalid);
+    // No exit here: the new chip takes the draft's place as the week redraws.
+    closeClassDraft({ animate: false });
+    add(result.entry).then(() => focusAdd(day));
   });
 
-  document.body.append(form);
-  dialog = { form, day };
-  anchorTo(form, anchor);
-  (nameField.hidden ? picker : name).focus();
-
-  // Deferred a tick so the click that opened the dialog does not close it.
-  setTimeout(() => document.addEventListener('pointerdown', onOutside), 0);
-  window.addEventListener('resize', reposition);
+  draft = { day, form, release: dismissWhenUntouched(form, closeClassDraft) };
+  btn.replaceWith(form);
+  form.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  (name.hidden ? picker : name).focus({ preventScroll: true });
 }
 
-/** @returns {string} a message to show, or '' when the entry was added */
-function submit(day, { picker, name, start, end }) {
-  if (onDay(day).length >= MAX_CLASSES_PER_DAY) {
-    return `${DAY_NAMES[day]} is full.`;
-  }
-
+/**
+ * @returns {{entry: object}|{invalid: HTMLElement}} the class to add, or the
+ *   field that is stopping it
+ */
+function read(day, { picker, name, start, end }) {
   const custom = picker.value === CUSTOM;
   const course = custom ? null : courses.find((c) => String(c.id) === picker.value);
   const label = custom ? name.value.trim() : course?.name ?? '';
-  if (!label) return 'Pick a class, or type a name for it.';
+  if (!label) return { invalid: custom ? name : picker };
 
-  if (!start.value || !end.value) return 'Set a start and an end time.';
-  if (toMinutes(end.value) <= toMinutes(start.value)) {
-    return 'The end time has to be after the start.';
+  if (!start.value) return { invalid: start };
+  if (!end.value || toMinutes(end.value) <= toMinutes(start.value)) {
+    return { invalid: end };
   }
 
-  add({
-    id: newId(),
-    day,
-    courseId: course ? course.id : null,
-    name: label,
-    start: start.value,
-    end: end.value,
-  });
-  return '';
+  return {
+    entry: {
+      id: newId(),
+      day,
+      courseId: course ? course.id : null,
+      name: label,
+      start: start.value,
+      end: end.value,
+    },
+  };
 }
 
 /** Picks up where the day's last class left off, or a plausible morning. */
@@ -418,12 +417,6 @@ function fromMinutes(total) {
   return `${h}:${m}`;
 }
 
-function field(extra) {
-  const el = document.createElement('div');
-  el.className = extra ? `cd-field ${extra}` : 'cd-field';
-  return el;
-}
-
 function timeInput(label, value) {
   const el = document.createElement('input');
   el.type = 'time';
@@ -432,28 +425,34 @@ function timeInput(label, value) {
   return el;
 }
 
-function reposition() {
-  if (dialog) closeDialog();   // the anchor has moved; simpler to start over
+/** Back on the day's plus button, so the next class is one Enter away. */
+function focusAdd(day) {
+  weekEl.children[day]?.querySelector('.week-add')?.focus({ preventScroll: true });
 }
 
 /**
  * Also the Escape handler for the whole week view, which is why it reports
  * whether it had anything to close: newtab.js closes the week view only when
  * this did not swallow the key.
+ *
+ * The chip shrinks back to the plus button's size and fill, and the button is
+ * put back in its place — not a re-render of the week, which would pull every
+ * other chip and button out from under a click.
+ * @param {{animate?: boolean}} [opts]
  * @returns {boolean}
  */
-export function closeDialog() {
-  if (!dialog) return false;
-  document.removeEventListener('pointerdown', onOutside);
-  window.removeEventListener('resize', reposition);
-  dialog.form.remove();
-  dialog = null;
-  return true;
-}
+export function closeClassDraft({ animate = true } = {}) {
+  if (!draft) return false;
+  const { day, form, release } = draft;
+  const hadFocus = form.contains(document.activeElement);
+  release();
+  draft = null;
 
-function onOutside(event) {
-  if (!dialog) return;
-  if (dialog.form.contains(event.target)) return;
-  if (event.target.closest('.week-add')) return;   // its own handler toggles
-  closeDialog();
+  const restore = () => {
+    if (form.isConnected) form.replaceWith(addButton(day));
+    if (hadFocus) focusAdd(day);
+  };
+  if (animate) leave(form, 'width', restore);
+  else restore();
+  return true;
 }

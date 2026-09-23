@@ -1,0 +1,5 @@
+<!-- The drafts' save tick. Used as a CSS mask, so only its shape matters; the
+     colour comes from the ink. -->
+<svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M2 6.4L4.8 9.1L10 3.2" stroke="black" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

@@ -10,13 +10,13 @@ import {
 } from './canvas.js';
 import { initSetup } from './setup.js';
 import { initSearch, setSearchEngine } from './search.js';
-import { initBookmarks, reloadBookmarks } from './bookmarks.js';
+import { initBookmarks, reloadBookmarks, closeBookmarkDraft } from './bookmarks.js';
 import {
   initSchedule, reloadSchedule, setHour12,
-  setCourses, upcomingClasses, dayLabel, formatRange, closeDialog,
+  setCourses, upcomingClasses, dayLabel, formatRange, closeClassDraft,
 } from './schedule.js';
 import {
-  initTasks, setTaskCourses, tasksFor, removeTask, toggleTask, closeTaskDialog,
+  initTasks, setTaskCourses, tasksFor, removeTask, toggleTask, closeTaskDraft,
 } from './tasks.js';
 import { initSettings } from './settings.js';
 
@@ -135,8 +135,8 @@ function wireFaces() {
   settingsClose.addEventListener('click', () => showFace('panels'));
   document.addEventListener('keydown', (event) => {
     if (event.key !== 'Escape') return;
-    // An add dialog swallows the first Escape; the face gets the next.
-    if (closeDialog() || closeTaskDialog()) return;
+    // An open draft swallows the first Escape; the face gets the next.
+    if (closeClassDraft() || closeTaskDraft() || closeBookmarkDraft()) return;
     showFace('panels');
   });
 }
@@ -165,9 +165,9 @@ function showFace(next) {
   scheduleBtn.setAttribute('aria-expanded', String(next === 'week'));
   settingsBtn.setAttribute('aria-expanded', String(next === 'settings'));
 
-  closeTaskDialog();
+  closeTaskDraft();
   if (prev === 'week') {
-    closeDialog();
+    closeClassDraft();
     if (onboarding) endOnboarding();
   }
 
@@ -446,7 +446,7 @@ function statusOf(a) {
 
 function renderClasses(courses) {
   lastCourses = courses;
-  setCourses(courses);          // the add dialogs pick their options from these
+  setCourses(courses);          // the drafts pick their options from these
   setTaskCourses(courses);
   classesList.replaceChildren();
 
