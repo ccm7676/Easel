@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Easel - your Canvas dashboard in every new tab",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "A clean overview of your classes, assignments, and week ahead.",
   "chrome_url_overrides": {
     "newtab": "newtab.html"
