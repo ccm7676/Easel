@@ -5,6 +5,7 @@ const CACHE_PREFIX = 'cache:';
 const BOOKMARKS_KEY = 'bookmarks';
 const SCHEDULE_KEY = 'schedule';
 const TASKS_KEY = 'tasks';
+const CHECKED_KEY = 'checked';
 const ONBOARDED_KEY = 'scheduleOnboarded';
 const PREFS_KEY = 'prefs';
 const BACKDROP_KEY = 'backdrop';
@@ -105,6 +106,22 @@ export async function getTasks() {
 
 export async function saveTasks(list) {
   await chrome.storage.local.set({ [TASKS_KEY]: list });
+}
+
+/**
+ * Canvas assignments the user ticked off by hand — the ones with nothing to
+ * submit, so Canvas itself never learns they are finished. Their ids, as
+ * js/canvas.js builds them ("courseId-assignmentId"). Survives Disconnect.
+ * @returns {Promise<string[]>}
+ */
+export async function getChecked() {
+  const bag = await chrome.storage.local.get(CHECKED_KEY);
+  const list = bag[CHECKED_KEY];
+  return Array.isArray(list) ? list : [];
+}
+
+export async function saveChecked(list) {
+  await chrome.storage.local.set({ [CHECKED_KEY]: list });
 }
 
 /** The settings panel's Reset. Leaves the onboarding flag alone: the user

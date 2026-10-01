@@ -315,8 +315,12 @@
     if (u.pathname === '/api/v1/courses') return mk(COURSES);
     const m = u.pathname.match(/^\/api\/v1\/courses\/(\d+)\/assignments$/);
     if (m) {
-      const table = u.searchParams.get('bucket') === 'past' ? PAST : FUTURE;
-      return mk(table[m[1]] ?? []);
+      /* js/canvas.js asks for every assignment at once; a bucket still works. */
+      const bucket = u.searchParams.get('bucket');
+      const pick = (t) => t[m[1]] ?? [];
+      if (bucket === 'past') return mk(pick(PAST));
+      if (bucket === 'future') return mk(pick(FUTURE));
+      return mk([...pick(PAST), ...pick(FUTURE)]);
     }
     return mk([]);
   };

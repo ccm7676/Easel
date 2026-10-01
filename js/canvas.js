@@ -157,25 +157,25 @@ export async function getCourses(settings) {
 }
 
 /**
- * Assignments for one bucket across every course.
+ * Every assignment across every course, in one pass for both pills.
  *
- * `bucket=future` — not `upcoming`. Canvas defines `upcoming` as due within the
- * next 7 days only (lib/sorts_assignments.rb), which would silently hide
- * anything further out. `future` is "due_at IS NULL OR due_at >= now".
+ * No `bucket` parameter: Canvas's buckets split on the due date alone, and the
+ * panel's Past also takes anything already finished — submitted, graded, or
+ * ticked off — so newtab.js does the splitting itself. Fetching the lot once
+ * also means switching pills costs no requests.
  *
  * Uses allSettled so one unreadable course cannot blank the whole panel.
  *
- * @param {'future'|'past'} bucket
  * @returns {Promise<{items:Array, failed:number}>}
  */
-export async function getAssignments(settings, courses, bucket) {
+export async function getAssignments(settings, courses) {
   const results = await Promise.allSettled(
     courses.map((course) =>
       getAll(
         settings,
-        `/courses/${course.id}/assignments?bucket=${bucket}` +
-          `&include[]=submission&order_by=due_at&per_page=50`,
-        { maxPages: 4 }
+        `/courses/${course.id}/assignments` +
+          `?include[]=submission&order_by=due_at&per_page=50`,
+        { maxPages: 8 }
       ).then((list) => ({ course, list: Array.isArray(list) ? list : [] }))
     )
   );
@@ -208,7 +208,6 @@ export async function getAssignments(settings, courses, bucket) {
     }
   }
 
-  sortByDue(items, bucket === 'past' ? 'desc' : 'asc');
   return { items, failed };
 }
 

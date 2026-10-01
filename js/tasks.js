@@ -3,9 +3,11 @@
  * merged into the Assignments panel by newtab.js, which renders them next to
  * Canvas's own. This module owns the list and the draft card behind the
  * panel's plus button; the dependency runs one way, newtab.js imports this.
+ * It also keeps the other half of the user's own say over that panel: which
+ * Canvas assignments they ticked off themselves.
  */
 
-import { getTasks, saveTasks } from './store.js';
+import { getTasks, saveTasks, getChecked, saveChecked } from './store.js';
 import { formatTime } from './schedule.js';
 import {
   pickerChip, selectField, saveButton, discardButton, flag, dismissWhenUntouched, leave,
@@ -15,13 +17,17 @@ const addBtn = document.getElementById('add-task-btn');
 const listEl = document.getElementById('assignments-list');
 
 let list = [];
+let checked = new Set();     // ids of Canvas assignments ticked off here
 let courses = [];            // Canvas courses, for the draft's picker
 let notify = () => {};       // tells newtab.js the list changed
 let draft = null;            // { form, release } while the draft card is open
 
 export async function initTasks({ onChange } = {}) {
   notify = onChange ?? (() => {});
-  list = await getTasks();
+  [list, checked] = await Promise.all([
+    getTasks(),
+    getChecked().then((ids) => new Set(ids)),
+  ]);
   addBtn.addEventListener('click', () => (draft ? closeTaskDraft() : openDraft()));
 }
 
@@ -31,13 +37,13 @@ export function setTaskCourses(next) {
 }
 
 /**
- * The tasks that belong under one pill, using Canvas's own rule: past is
- * "due before now", and anything undated counts as still to come.
+ * The tasks that belong under one pill, by the panel's rule: past is done, or
+ * due before now; anything else, undated included, is still to come.
  * @param {'future'|'past'} bucket
  */
 export function tasksFor(bucket, now = Date.now()) {
   return list.filter((t) => {
-    const past = t.dueAt !== null && new Date(t.dueAt).getTime() < now;
+    const past = t.done || (t.dueAt !== null && new Date(t.dueAt).getTime() < now);
     return bucket === 'past' ? past : !past;
   });
 }
@@ -52,6 +58,18 @@ export async function removeTask(id) {
 export async function toggleTask(id) {
   list = list.map((t) => (t.id === id ? { ...t, done: !t.done } : t));
   await saveTasks(list);
+  notify();
+}
+
+/** Whether the user ticked off this Canvas assignment. */
+export function isChecked(id) {
+  return checked.has(id);
+}
+
+/** Ticks a Canvas assignment off, or back on. */
+export async function toggleChecked(id) {
+  if (!checked.delete(id)) checked.add(id);
+  await saveChecked([...checked]);
   notify();
 }
 
