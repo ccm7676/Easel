@@ -50,12 +50,14 @@ body {
 .set-btn:hover { background: var(--glass-hover); }
 .head-btn:hover,
 a.card:hover,
+.card--linked:hover,
 .week-add:hover { background: var(--card-hover); }
 .bookmark-link:hover,
 .bookmark-add:hover,
 .settings-btn:hover,
 .head-btn:hover,
 a.card:hover,
+.card--linked:hover,
 .week-add:hover,
 .set-btn:hover { transform: translateY(-1px); }
 .bookmark-link:active,
@@ -63,6 +65,7 @@ a.card:hover,
 .settings-btn:active,
 .head-btn:active,
 a.card:active,
+.card--linked:active:not(:has(.card-check:active)),
 .week-add:active,
 .set-btn:active { transform: translateY(0); }
 
@@ -885,6 +888,14 @@ a.card:active,
 .status--done { color: var(--status-done); }
 .status--late { color: var(--status-late); }
 
+/* The foot's right-hand end: points, or the trash, then the tick. */
+.card-foot-end {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: calc(8px * var(--ui-scale));
+}
+
 .card-pts, .grade {
   flex: none;
   font-variant-numeric: tabular-nums;
@@ -936,16 +947,59 @@ a.card:active,
   text-shadow: var(--shadow-text);
 }
 
-/* ---------- The user's own assignments ---------- */
-/* Not links, so the status is the control: it ticks the task off. */
-.status-toggle {
+/* ---------- Ticking assignments off ---------- */
+/* A Canvas card that holds the tick cannot be a link itself, so its title is,
+   stretched over the whole card; the tick sits above that stretch. */
+.card--linked { position: relative; }
+.card-link {
+  text-decoration: none;
+  color: var(--ink-on-card);
+  outline: none;
+}
+.card-link::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+.card--linked:has(.card-link:focus-visible) { outline: auto; }
+
+/* The small tick that files a card under Past: an empty ring until pressed,
+   then filled, like the draft's save tick it echoes. */
+.card-check {
+  position: relative;
+  flex: none;
+  width: calc(18px * var(--ui-scale));
+  height: calc(18px * var(--ui-scale));
   padding: 0;
   border: 0;
+  border-radius: 50%;
   background: none;
-  font: inherit;
+  box-shadow: inset 0 0 0 1.5px var(--ink-on-card-dim);
+  color: var(--ink-on-card-dim);
+  display: grid;
+  place-items: center;
   cursor: pointer;
+  transition: transform 120ms ease, background 140ms ease, color 140ms ease;
 }
-.status-toggle:hover { text-decoration: underline; }
+.card-check::before {
+  content: '';
+  width: 55%;
+  height: 55%;
+  background: currentColor;
+  -webkit-mask: url('../assets/check.svg') center / contain no-repeat;
+  mask: url('../assets/check.svg') center / contain no-repeat;
+  opacity: 0.5;
+}
+.card-check:hover { transform: scale(1.08); color: var(--ink-on-card); }
+.card-check:hover::before { opacity: 1; }
+.card-check:active { transform: scale(0.96); }
+.card-check[aria-pressed='true'] {
+  background: var(--status-done);
+  box-shadow: none;
+  color: #fff;
+}
+.card-check[aria-pressed='true']::before { opacity: 1; }
 
 /* Revealed on hover, as on bookmarks and week chips, but sitting in the foot
    rather than hanging off a corner: the scrolling list would clip it there. */
@@ -1493,7 +1547,7 @@ a.card:active,
 @media (prefers-reduced-motion: reduce) {
   .bookmark-link, .bookmark-add, .bookmark-remove,
   .head-btn, .pill-add, .pill-add-icon, .settings-btn, .set-btn,
-  .week-chip-remove, .week-add, .task-remove,
+  .week-chip-remove, .week-add, .task-remove, .card-check,
   .draft-chip, .draft-save, .bookmark-draft-add { transition: none; }
   .draft--task, .draft--class, .bookmark-draft,
   .bookmark-draft-error { animation: none; }

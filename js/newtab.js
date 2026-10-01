@@ -17,6 +17,7 @@ import {
 } from './schedule.js';
 import {
   initTasks, setTaskCourses, tasksFor, removeTask, toggleTask, closeTaskDraft,
+  isChecked, toggleChecked,
 } from './tasks.js';
 import { initSettings } from './settings.js';
 
@@ -204,7 +205,9 @@ function selectBucket(next) {
     p.classList.toggle('is-selected', on);
     p.setAttribute('aria-selected', String(on));
   });
-  load();
+  // Both pills come from the same fetch, so a switch is only a re-render.
+  if (lastAssignments) renderAssignments(lastAssignments, lastRender);
+  else load();
 }
 
 /* ------------------------------------------------------------------ */
@@ -213,7 +216,7 @@ function selectBucket(next) {
 
 async function load() {
   const run = ++loadToken;
-  const assignKey = `assignments:${bucket}`;
+  const assignKey = 'assignments';
 
   const [cachedCourses, cachedAssignments] = await Promise.all([
     readCache('courses'),
@@ -245,7 +248,7 @@ async function load() {
       return;
     }
 
-    const { items, failed } = await getAssignments(settings, courses, bucket);
+    const { items, failed } = await getAssignments(settings, courses);
     if (run !== loadToken) return;
     await writeCache(assignKey, items);
     renderAssignments(items, { failed });
@@ -306,15 +309,18 @@ function renderSkeletons(target, count = 4) {
 }
 
 /**
- * @param {Array} items the Canvas assignments; the user's own are merged in here
+ * @param {Array} items every Canvas assignment, both pills' worth; this picks
+ *   the current pill's share and merges the user's own in
  * @param {{failed?: number, noCourses?: boolean}} [opts]
  */
 function renderAssignments(items, opts = {}) {
   const { failed = 0, noCourses = false } = opts;
   assignmentsList.replaceChildren();
 
-  const tasks = tasksFor(bucket).map((t) => ({ ...t, isTask: true }));
-  const all = [...items, ...tasks];
+  const now = Date.now();
+  const shown = items.filter((a) => isPast(a, now) === (bucket === 'past'));
+  const tasks = tasksFor(bucket, now).map((t) => ({ ...t, isTask: true }));
+  const all = [...shown, ...tasks];
   sortByDue(all, bucket === 'past' ? 'desc' : 'asc');
 
   if (!all.length) {
@@ -325,7 +331,7 @@ function renderAssignments(items, opts = {}) {
         assignmentsList,
         bucket === 'past' ? 'Nothing here yet' : 'All clear',
         bucket === 'past'
-          ? 'No past assignments in your active courses.'
+          ? 'Nothing finished or past due yet.'
           : 'Nothing due. Enjoy it.'
       );
     }
@@ -345,10 +351,17 @@ function renderAssignments(items, opts = {}) {
   }
 }
 
+/**
+ * A Canvas assignment. One with nothing to submit also gets the tick: a button
+ * cannot sit inside a link, so that card is a plain box and its title the
+ * link, stretched over the whole card by CSS.
+ */
 function assignmentCard(a) {
-  const card = link(a.url, 'card');
+  const st = statusOf(a);
+  const card = st.checkable ? div('card card--linked') : link(a.url, 'card');
 
-  const title = div('card-title', a.title);
+  const title = st.checkable ? link(a.url, 'card-title card-link') : div('card-title');
+  title.textContent = a.title;
   title.title = a.title;
 
   const course = a.courseCode || a.courseName;
@@ -357,17 +370,14 @@ function assignmentCard(a) {
   meta.title = `${a.courseName} · ${due}`;
 
   const foot = div('card-foot');
-  const st = statusOf(a);
-  const status = document.createElement('span');
-  status.className = st.cls ? `status status--${st.cls}` : 'status';
-  const dot = document.createElement('i');
-  dot.className = 'dot';
-  status.append(dot, document.createTextNode(st.label));
-  foot.append(status);
-
+  const end = div('card-foot-end');
   if (a.points !== null) {
-    foot.append(div('card-pts', `${trimNum(a.points)} pts`));
+    end.append(div('card-pts', `${trimNum(a.points)} pts`));
   }
+  if (st.checkable) {
+    end.append(checkButton(isChecked(a.id), a.title, () => toggleChecked(a.id)));
+  }
+  foot.append(statusLabel(st), end);
 
   card.append(title, meta, foot);
   return card;
@@ -375,8 +385,8 @@ function assignmentCard(a) {
 
 /**
  * One the user added by hand. There is nothing on Canvas to link to, so the
- * card is not a link; instead its status is a button that ticks it off, and a
- * trash button — revealed on hover, as on bookmarks — deletes it.
+ * card is not a link; instead it carries the tick that files it under Past,
+ * and a trash button — revealed on hover, as on bookmarks — that deletes it.
  */
 function taskCard(t) {
   const card = div('card card--task');
@@ -393,15 +403,6 @@ function taskCard(t) {
   const st = t.done ? { cls: 'done', label: 'Done' }
     : t.dueAt && new Date(t.dueAt) < new Date() ? { cls: 'late', label: 'Overdue' }
     : { cls: 'due', label: 'To do' };
-  const status = document.createElement('button');
-  status.type = 'button';
-  status.className = `status status--${st.cls} status-toggle`;
-  status.setAttribute('aria-pressed', String(Boolean(t.done)));
-  status.title = t.done ? 'Mark as not done' : 'Mark as done';
-  const dot = document.createElement('i');
-  dot.className = 'dot';
-  status.append(dot, document.createTextNode(st.label));
-  status.addEventListener('click', () => toggleTask(t.id));
 
   const del = document.createElement('button');
   del.type = 'button';
@@ -413,9 +414,33 @@ function taskCard(t) {
   del.append(img);
   del.addEventListener('click', () => removeTask(t.id));
 
-  foot.append(status, del);
+  const end = div('card-foot-end');
+  end.append(del, checkButton(Boolean(t.done), t.title, () => toggleTask(t.id)));
+  foot.append(statusLabel(st), end);
   card.append(title, meta, foot);
   return card;
+}
+
+/** The coloured dot and its word, at the start of a card's foot. */
+function statusLabel(st) {
+  const status = document.createElement('span');
+  status.className = st.cls ? `status status--${st.cls}` : 'status';
+  const dot = document.createElement('i');
+  dot.className = 'dot';
+  status.append(dot, document.createTextNode(st.label));
+  return status;
+}
+
+/** The small tick that files an assignment under Past, or, pressed, brings it back. */
+function checkButton(done, title, onClick) {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'card-check';
+  btn.setAttribute('aria-pressed', String(done));
+  btn.setAttribute('aria-label', `Mark ${title} as done`);
+  btn.title = done ? 'Mark as not done' : 'Mark as done';
+  btn.addEventListener('click', onClick);
+  return btn;
 }
 
 /** Called when the user adds, ticks off or removes one of their own. */
@@ -423,7 +448,21 @@ function refreshAssignments() {
   if (lastAssignments) renderAssignments(lastAssignments, lastRender);
 }
 
-/** Maps Canvas submission state onto the three dot colours. */
+/**
+ * Past is anything finished — submitted, graded or ticked off — or due before
+ * now. Canvas's own buckets go by the date alone, so undated work that is done
+ * would otherwise sit under Upcoming for good.
+ */
+function isPast(a, now) {
+  if (a.dueAt && new Date(a.dueAt).getTime() < now) return true;
+  return statusOf(a).cls === 'done';
+}
+
+/**
+ * Maps Canvas submission state onto the three dot colours. `checkable` marks
+ * the ones with nothing to submit: Canvas never hears that they are done, so
+ * the card offers a tick instead.
+ */
 function statusOf(a) {
   const types = a.submissionTypes;
   const nothingToSubmit =
@@ -439,7 +478,11 @@ function statusOf(a) {
   if (a.submittedAt || a.submissionState === 'submitted' || a.submissionState === 'pending_review') {
     return { cls: 'done', label: 'Submitted' };
   }
-  if (nothingToSubmit) return { cls: '', label: 'No submission needed' };
+  if (nothingToSubmit) {
+    return isChecked(a.id)
+      ? { cls: 'done', label: 'Done', checkable: true }
+      : { cls: '', label: 'No submission needed', checkable: true };
+  }
   if (a.dueAt && new Date(a.dueAt) < new Date()) return { cls: 'late', label: 'Overdue' };
   return { cls: 'due', label: 'Not submitted' };
 }
