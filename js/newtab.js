@@ -47,6 +47,7 @@ let settings = null;
 let bucket = 'future';       // 'future' = Upcoming pill, 'past' = Past pill
 let dashboardWired = false;
 let loadToken = 0;           // guards against out-of-order responses
+let fetching = 0;            // the load() whose requests are in flight, or 0
 
 let lastCourses = [];        // whatever the Classes panel is showing
 let classesReady = false;    // false while it holds skeletons or a notice
@@ -80,6 +81,7 @@ async function main() {
 }
 
 function showSetup(opts) {
+  cancelLoad();
   dashView.hidden = true;
   setupView.hidden = false;
   initSetup((saved) => {
@@ -114,6 +116,9 @@ async function showDashboard() {
 }
 
 async function disconnect() {
+  // Before clearing: a load still in flight would otherwise cache the old
+  // account's data again, for the next one to be shown.
+  cancelLoad();
   showFace('panels');
   await clearAll();
   settings = null;
@@ -214,6 +219,33 @@ function selectBucket(next) {
 /*  Data — paint cache first, then revalidate                          */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Retires any load() in flight, so it cannot paint or cache anything once the
+ * dashboard is left — perhaps for another account. The panels it leaves behind
+ * belong to that load, so the schedule must not repaint over them either.
+ */
+function cancelLoad() {
+  loadToken++;
+  fetching = 0;
+  classesReady = false;
+}
+
+/**
+ * A tab left open — pinned, or just never closed — would otherwise show the
+ * assignments it opened with for good. Coming back to it checks again: free
+ * while the cache is fresh, and one round of requests per cache lifetime at most.
+ */
+async function revalidate() {
+  if (dashView.hidden || fetching) return;
+  const [courses, assignments] = await Promise.all([
+    readCache('courses'),
+    readCache('assignments'),
+  ]);
+  if (courses?.fresh && assignments?.fresh) return;
+  if (dashView.hidden || fetching) return;
+  load();
+}
+
 async function load() {
   const run = ++loadToken;
   const assignKey = 'assignments';
@@ -234,6 +266,7 @@ async function load() {
   const needAssignments = !cachedAssignments?.fresh;
   if (!needCourses && !needAssignments) return;
 
+  fetching = run;
   try {
     let courses = cachedCourses?.data ?? [];
     if (needCourses) {
@@ -258,6 +291,8 @@ async function load() {
       hadAssignments: Boolean(cachedAssignments),
       hadCourses: Boolean(cachedCourses),
     });
+  } finally {
+    if (fetching === run) fetching = 0;
   }
 }
 
@@ -270,6 +305,7 @@ function handleLoadError(err, { hadAssignments, hadCourses }) {
     const act = token
       ? { label: 'Update token', run: () => showSetup({
           origin, message: 'Your Canvas token is no longer valid. Paste a new one.',
+          useToken: true,
         }) }
       : { label: 'Log in', run: () => showSetup({
           origin, message: 'You were logged out of Canvas. Log in again to continue.',
@@ -593,7 +629,9 @@ function refreshClasses() {
 
 setInterval(tickNow, NOW_TICK_MS);
 document.addEventListener('visibilitychange', () => {
-  if (!document.hidden) tickNow();
+  if (document.hidden) return;
+  tickNow();
+  revalidate();
 });
 
 function renderNotice(target, heading, body, action) {

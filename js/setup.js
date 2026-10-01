@@ -28,6 +28,7 @@ const schoolList = document.getElementById('school-list');
 const schoolPicked = document.getElementById('school-picked');
 const toSearchBtn = document.getElementById('to-search');
 const toAddressBtn = document.getElementById('to-address');
+const tokenDetails = document.getElementById('token-details');
 const tokenInput = document.getElementById('canvas-token');
 const tokenLink = document.getElementById('token-link');
 const errorBox = document.getElementById('setup-error');
@@ -55,8 +56,9 @@ let searchCall = null;       // AbortController of the lookup in flight
  * @param {object} [opts]
  * @param {string} [opts.message] shown as an error on arrival
  * @param {string} [opts.origin] prefills the address, e.g. to log back in
+ * @param {boolean} [opts.useToken] opens the token section, for a token to replace
  */
-export function initSetup(callback, { message, origin } = {}) {
+export function initSetup(callback, { message, origin, useToken = false } = {}) {
   onDone = callback;
   if (message) showError(message);
   else hideError();
@@ -81,10 +83,12 @@ export function initSetup(callback, { message, origin } = {}) {
   showMode('address');
 
   if (origin) {
-    // Logging back in to a known Canvas: the address is already right.
+    // Logging back in to a known Canvas: the address is already right. A
+    // rejected token is answered with a new one, not a switch to logging in.
     urlInput.value = origin.replace(/^https:\/\//, '');
     syncTokenLink();
-    setTimeout(() => connectBtn.focus(), 0);
+    if (useToken) tokenDetails.open = true;
+    setTimeout(() => (useToken ? tokenInput : connectBtn).focus(), 0);
     return;
   }
   syncTokenLink();
@@ -424,6 +428,8 @@ async function ensureGranted(origin, grantedPromise) {
 }
 
 async function complete(settings, me) {
+  // userId tells store.js whether this is the account the cache belongs to.
+  settings.userId = me?.id ?? null;
   settings.userName = me?.short_name ?? me?.name ?? null;
   await saveSettings(settings);
   onDone(settings);

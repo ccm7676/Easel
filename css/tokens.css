@@ -175,7 +175,7 @@
 
   /* ---------- Ink ----------
      THIS BLOCK IS BACKGROUND-DEPENDENT — the one thing to change if you swap
-     assets/bg.png for a dark photo. (The dark theme below is a separate
+     assets/bg.webp for a dark photo. (The dark theme below is a separate
      matter: it darkens the glass itself, and overrides these to suit.)
 
      Every glass surface is white-tinted (container 0.4, panel a further 0.2,

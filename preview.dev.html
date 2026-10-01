@@ -46,7 +46,7 @@
 
       <button class="btn" id="connect-btn" type="submit">Log in with Canvas</button>
 
-      <details class="setup-alt">
+      <details class="setup-alt" id="token-details">
         <summary>Use an access token instead</summary>
 
         <label class="field">
@@ -291,7 +291,9 @@
       async set(obj) { Object.assign(BAG, obj); },
       async remove(k) { for (const key of [].concat(k)) delete BAG[key]; },
       async clear() { for (const key of Object.keys(BAG)) delete BAG[key]; },
-    }},
+    },
+    /* One tab, so nothing else ever writes to the bag. */
+    onChanged: { addListener() {} } },
     permissions: { async contains() { return true; }, async request() { return true; } },
     search: { query() {} },
     /* No getURL: js/bookmarks.js then falls back to the letter monogram,

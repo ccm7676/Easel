@@ -8,7 +8,7 @@
  */
 
 import {
-  getSchedule, saveSchedule, MAX_CLASSES_PER_DAY,
+  getSchedule, updateSchedule, watchSchedule, sameList, MAX_CLASSES_PER_DAY,
 } from './store.js';
 import {
   pickerChip, selectField, saveButton, discardButton, flag, dismissWhenUntouched, leave,
@@ -29,6 +29,13 @@ let draft = null;            // { day, form, release } while a day has a draft c
 export async function initSchedule({ onChange, hour12 = false } = {}) {
   notify = onChange ?? (() => {});
   timeFmt = makeTimeFmt(hour12);
+  // Another tab's edit. This tab's own come back here too, already applied.
+  watchSchedule((next) => {
+    if (sameList(next, list)) return;
+    list = next;
+    render();
+    notify();
+  });
   list = await getSchedule();
   render();
 }
@@ -245,15 +252,13 @@ function addButton(day) {
 /* ------------------------------------------------------------------ */
 
 async function add(entry) {
-  list = [...list, entry];
-  await saveSchedule(list);
+  list = await updateSchedule((stored) => [...stored, entry]);
   render();
   notify();
 }
 
 async function remove(id) {
-  list = list.filter((e) => e.id !== id);
-  await saveSchedule(list);
+  list = await updateSchedule((stored) => stored.filter((e) => e.id !== id));
   render();
   notify();
 }

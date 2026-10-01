@@ -7,7 +7,9 @@
  * Canvas assignments they ticked off themselves.
  */
 
-import { getTasks, saveTasks, getChecked, saveChecked } from './store.js';
+import {
+  getTasks, updateTasks, watchTasks, getChecked, updateChecked, watchChecked, sameList,
+} from './store.js';
 import { formatTime } from './schedule.js';
 import {
   pickerChip, selectField, saveButton, discardButton, flag, dismissWhenUntouched, leave,
@@ -24,6 +26,17 @@ let draft = null;            // { form, release } while the draft card is open
 
 export async function initTasks({ onChange } = {}) {
   notify = onChange ?? (() => {});
+  // Another tab's edits. This tab's own come back here too, already applied.
+  watchTasks((next) => {
+    if (sameList(next, list)) return;
+    list = next;
+    notify();
+  });
+  watchChecked((ids) => {
+    if (sameList(ids, [...checked])) return;
+    checked = new Set(ids);
+    notify();
+  });
   [list, checked] = await Promise.all([
     getTasks(),
     getChecked().then((ids) => new Set(ids)),
@@ -49,15 +62,14 @@ export function tasksFor(bucket, now = Date.now()) {
 }
 
 export async function removeTask(id) {
-  list = list.filter((t) => t.id !== id);
-  await saveTasks(list);
+  list = await updateTasks((stored) => stored.filter((t) => t.id !== id));
   notify();
 }
 
 /** Ticks a task off, or back on. */
 export async function toggleTask(id) {
-  list = list.map((t) => (t.id === id ? { ...t, done: !t.done } : t));
-  await saveTasks(list);
+  list = await updateTasks((stored) =>
+    stored.map((t) => (t.id === id ? { ...t, done: !t.done } : t)));
   notify();
 }
 
@@ -68,14 +80,14 @@ export function isChecked(id) {
 
 /** Ticks a Canvas assignment off, or back on. */
 export async function toggleChecked(id) {
-  if (!checked.delete(id)) checked.add(id);
-  await saveChecked([...checked]);
+  const ids = await updateChecked((stored) =>
+    stored.includes(id) ? stored.filter((x) => x !== id) : [...stored, id]);
+  checked = new Set(ids);
   notify();
 }
 
 async function add(task) {
-  list = [...list, task];
-  await saveTasks(list);
+  list = await updateTasks((stored) => [...stored, task]);
   notify();
 }
 

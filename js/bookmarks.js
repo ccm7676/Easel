@@ -2,7 +2,9 @@
  * site's favicon; a single trailing tile with a plus widens into an address
  * bar to add one, and disappears once the row is full. */
 
-import { getBookmarks, saveBookmarks, MAX_BOOKMARKS } from './store.js';
+import {
+  getBookmarks, updateBookmarks, watchBookmarks, sameList, MAX_BOOKMARKS,
+} from './store.js';
 import { discardButton, flag, dismissWhenUntouched, leave } from './draft.js';
 
 const row = document.getElementById('bookmarks');
@@ -11,6 +13,14 @@ let list = [];
 let draft = null;            // { wrap, release } while the plus tile is a bar
 
 export async function initBookmarks() {
+  // Another tab's edit. This tab's own come back here too, already applied.
+  watchBookmarks((next) => {
+    if (sameList(next, list)) return;
+    list = next;
+    // A full row has no place for the plus tile the draft grew from.
+    if (list.length >= MAX_BOOKMARKS) closeBookmarkDraft({ animate: false });
+    render();
+  });
   list = await getBookmarks();
   render();
 }
@@ -63,7 +73,7 @@ function tile(bm, index) {
   img.src = 'assets/trash.svg';
   img.alt = '';
   del.append(img);
-  del.addEventListener('click', () => remove(index));
+  del.addEventListener('click', () => remove(index, bm));
 
   wrap.append(a, del);
   return wrap;
@@ -166,14 +176,19 @@ function monogram(bm) {
 /* ------------------------------------------------------------------ */
 
 async function add(url) {
-  list = [...list, { url, title: labelFor(url) }];
-  await saveBookmarks(list);
+  list = await updateBookmarks((stored) => [...stored, { url, title: labelFor(url) }]);
   render();
 }
 
-async function remove(index) {
-  list = list.filter((_, i) => i !== index);
-  await saveBookmarks(list);
+/** By position while that is still the bookmark clicked — another tab may
+ *  have changed the row since it was drawn — else its first copy by address. */
+async function remove(index, bm) {
+  list = await updateBookmarks((stored) => {
+    const at = stored[index]?.url === bm.url
+      ? index
+      : stored.findIndex((b) => b.url === bm.url);
+    return at < 0 ? stored : stored.filter((_, i) => i !== at);
+  });
   render();
 }
 

@@ -29,14 +29,24 @@ export const CACHE_TTL_MS = 5 * 60 * 1000;
 
 /**
  * `token` is absent when Easel uses the browser's Canvas login instead.
- * @returns {Promise<{origin:string, token?:string, userName?:string|null}|null>}
+ * @returns {Promise<{origin:string, token?:string, userId?:number|null, userName?:string|null}|null>}
  */
 export async function getSettings() {
   const bag = await chrome.storage.local.get(SETTINGS_KEY);
   return bag[SETTINGS_KEY] ?? null;
 }
 
+/**
+ * Connecting a different account — another school, or another student at the
+ * same one — also drops the cached Canvas data, which belongs to the old one.
+ * The same account logging back in keeps it, so the dashboard still paints at
+ * once. Settings saved before userId was recorded count as different, once.
+ */
 export async function saveSettings(settings) {
+  const prev = await getSettings();
+  if (prev?.origin !== settings.origin || prev?.userId !== settings.userId) {
+    await removeWhere((k) => k.startsWith(CACHE_PREFIX));
+  }
   await chrome.storage.local.set({ [SETTINGS_KEY]: settings });
 }
 
@@ -48,24 +58,72 @@ export async function saveSettings(settings) {
  * only its courseId goes stale.
  */
 export async function clearAll() {
+  await removeWhere((k) => k === SETTINGS_KEY || k.startsWith(CACHE_PREFIX));
+}
+
+async function removeWhere(test) {
   const all = await chrome.storage.local.get(null);
-  const doomed = Object.keys(all).filter(
-    (k) => k === SETTINGS_KEY || k.startsWith(CACHE_PREFIX)
-  );
-  await chrome.storage.local.remove(doomed);
+  await chrome.storage.local.remove(Object.keys(all).filter(test));
+}
+
+/* ------------------------------------------------------------------ */
+/*  The user's lists: bookmarks, schedule, tasks                       */
+/* ------------------------------------------------------------------ */
+
+/* Several new tabs can be open at once, each holding its own copy of these
+ * lists. Saving that copy whole would put back whatever another tab had
+ * removed, and drop whatever it had added. So every change is made to the
+ * list as stored right now, and every tab watches for changes made by the
+ * others. */
+
+let pending = Promise.resolve();
+
+/**
+ * Applies `change` to the stored list and saves the result. Queued, so two
+ * quick changes in one tab cannot both start from the same list. Across tabs
+ * the gap is a single storage round trip, not the life of a tab.
+ * @returns {Promise<Array>} the list as saved
+ */
+function updateList(key, change, limit = Infinity) {
+  const run = pending.then(async () => {
+    const bag = await chrome.storage.local.get(key);
+    const next = change(asList(bag[key])).slice(0, limit);
+    await chrome.storage.local.set({ [key]: next });
+    return next;
+  });
+  pending = run.catch(() => {});
+  return run;
+}
+
+/** Calls back with the list whenever it is saved or cleared — by any tab, this one included. */
+function watchList(key, callback, limit = Infinity) {
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== 'local' || !Object.hasOwn(changes, key)) return;
+    callback(asList(changes[key].newValue).slice(0, limit));
+  });
+}
+
+function asList(value) {
+  return Array.isArray(value) ? value : [];
+}
+
+/** Whether two lists hold the same entries — how a tab spots its own change coming back. */
+export function sameList(a, b) {
+  return JSON.stringify(a) === JSON.stringify(b);
 }
 
 /** @returns {Promise<Array<{url:string, title:string}>>} */
 export async function getBookmarks() {
   const bag = await chrome.storage.local.get(BOOKMARKS_KEY);
-  const list = bag[BOOKMARKS_KEY];
-  return Array.isArray(list) ? list.slice(0, MAX_BOOKMARKS) : [];
+  return asList(bag[BOOKMARKS_KEY]).slice(0, MAX_BOOKMARKS);
 }
 
-export async function saveBookmarks(list) {
-  await chrome.storage.local.set({
-    [BOOKMARKS_KEY]: list.slice(0, MAX_BOOKMARKS),
-  });
+export function updateBookmarks(change) {
+  return updateList(BOOKMARKS_KEY, change, MAX_BOOKMARKS);
+}
+
+export function watchBookmarks(callback) {
+  watchList(BOOKMARKS_KEY, callback, MAX_BOOKMARKS);
 }
 
 /**
@@ -83,12 +141,15 @@ export async function saveBookmarks(list) {
  */
 export async function getSchedule() {
   const bag = await chrome.storage.local.get(SCHEDULE_KEY);
-  const list = bag[SCHEDULE_KEY];
-  return Array.isArray(list) ? list : [];
+  return asList(bag[SCHEDULE_KEY]);
 }
 
-export async function saveSchedule(list) {
-  await chrome.storage.local.set({ [SCHEDULE_KEY]: list });
+export function updateSchedule(change) {
+  return updateList(SCHEDULE_KEY, change);
+}
+
+export function watchSchedule(callback) {
+  watchList(SCHEDULE_KEY, callback);
 }
 
 /**
@@ -100,12 +161,15 @@ export async function saveSchedule(list) {
  */
 export async function getTasks() {
   const bag = await chrome.storage.local.get(TASKS_KEY);
-  const list = bag[TASKS_KEY];
-  return Array.isArray(list) ? list : [];
+  return asList(bag[TASKS_KEY]);
 }
 
-export async function saveTasks(list) {
-  await chrome.storage.local.set({ [TASKS_KEY]: list });
+export function updateTasks(change) {
+  return updateList(TASKS_KEY, change);
+}
+
+export function watchTasks(callback) {
+  watchList(TASKS_KEY, callback);
 }
 
 /**
@@ -116,12 +180,15 @@ export async function saveTasks(list) {
  */
 export async function getChecked() {
   const bag = await chrome.storage.local.get(CHECKED_KEY);
-  const list = bag[CHECKED_KEY];
-  return Array.isArray(list) ? list : [];
+  return asList(bag[CHECKED_KEY]);
 }
 
-export async function saveChecked(list) {
-  await chrome.storage.local.set({ [CHECKED_KEY]: list });
+export function updateChecked(change) {
+  return updateList(CHECKED_KEY, change);
+}
+
+export function watchChecked(callback) {
+  watchList(CHECKED_KEY, callback);
 }
 
 /** The settings panel's Reset. Leaves the onboarding flag alone: the user

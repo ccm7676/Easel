@@ -23,7 +23,7 @@ body {
 .backdrop {
   position: fixed;
   inset: 0;
-  background: var(--backdrop-custom, url('../assets/bg.png')) center / cover no-repeat;
+  background: var(--backdrop-custom, url('../assets/bg.webp')) center / cover no-repeat;
   filter: var(--backdrop-filter);
   pointer-events: none;
   user-select: none;
