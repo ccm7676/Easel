@@ -17,11 +17,25 @@
       <h1 class="setup-title">Connect Canvas</h1>
       <p class="setup-sub">Easel reads your assignments and classes straight from your school's Canvas.</p>
 
-      <label class="field">
-        <span class="field-label">Canvas web address</span>
+      <!-- Search is only offered once js/setup.js has confirmed the school
+           directory works; until then, and whenever it fails, the address
+           field below is the way in. -->
+      <div class="field" id="school-field" hidden>
+        <label class="field-label" for="school-search">Your school</label>
+        <input class="input combo-input" id="school-search" type="text" spellcheck="false"
+               autocomplete="off" placeholder="Search for your school" role="combobox"
+               aria-expanded="false" aria-controls="school-list" aria-autocomplete="list">
+        <ul class="combo-list glass" id="school-list" role="listbox" aria-label="Schools" popover="manual"></ul>
+        <span class="field-hint" id="school-picked" hidden></span>
+        <button class="link-btn" id="to-address" type="button">My school isn't listed — enter its address</button>
+      </div>
+
+      <div class="field" id="address-field">
+        <label class="field-label" for="canvas-url">Canvas web address</label>
         <input class="input" id="canvas-url" type="text" inputmode="url" spellcheck="false"
                autocomplete="off" placeholder="yourschool.instructure.com" required>
-      </label>
+        <button class="link-btn" id="to-search" type="button" hidden>Search for my school instead</button>
+      </div>
 
       <p class="setup-note">
         You log in on your school's own Canvas page, so Easel never sees your password

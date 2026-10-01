@@ -1255,6 +1255,91 @@ a.card:active,
 .btn:hover { transform: translateY(-1px); }
 .btn[disabled] { opacity: 0.6; cursor: default; transform: none; }
 
+/* The school search: the input plus the list of matches under it.
+   The list is a popover, so it renders in the top layer rather than inside the
+   setup card. That matters: the card's own backdrop-filter makes it a backdrop
+   root, and a glass list nested in it could only blur the card itself — and
+   faded to nothing wherever it hung past the card's edge. Out here it blurs the
+   real page like every other glass surface, and anchor positioning keeps it
+   pinned under the input. */
+.combo-input { anchor-name: --school-search; }
+.combo-list {
+  position-anchor: --school-search;
+  inset: auto;
+  top: calc(anchor(bottom) + 6px);
+  left: anchor(left);
+  width: anchor-size(width);
+  /* Opens upward instead when the window is too short below the input. */
+  position-try-fallbacks: flip-block;
+  max-height: calc(var(--input-h) * 5);
+  margin: 0;
+  padding: 4px;
+  overflow-y: auto;
+  list-style: none;
+  color: var(--ink-on-glass);
+  border-radius: var(--r-row);
+}
+.combo-option {
+  padding: 8px 12px;
+  font-size: 14px;
+  line-height: 1.3;
+  text-shadow: var(--shadow-text);
+  border-radius: calc(var(--r-row) - 4px);
+  cursor: pointer;
+  transition: background 140ms ease;
+}
+.combo-option small {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--ink-on-glass-dim);
+}
+.combo-option:hover,
+.combo-option[aria-selected='true'] { background: var(--glass-hover); }
+.combo-empty {
+  padding: 8px 12px;
+  font-size: 13px;
+  color: var(--ink-on-glass-dim);
+  text-shadow: var(--shadow-text);
+}
+
+/* While the list is open it covers the rest of the card, so the rest of the
+   card steps aside: otherwise the white button glows through the glass as a
+   bright smear and stray lines of text peek out around its edges. Picking a
+   school closes the list and brings it all back. */
+/* Visibility (so hidden parts can't be clicked or tabbed to) waits for the
+   fade when hiding but flips at once when showing — picking a school moves
+   focus straight to the button, which must already be focusable. */
+#school-field .link-btn,
+#school-picked,
+.setup-note,
+.form-error,
+.setup-alt { transition: opacity 140ms ease; }
+#connect-btn { transition: opacity 140ms ease, transform 140ms ease; }
+.setup-card:has(.combo-list:popover-open) :is(
+  #school-field .link-btn, #school-picked, .setup-note, .form-error, #connect-btn, .setup-alt
+) {
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 140ms ease, visibility 0s linear 140ms;
+}
+
+/* A quiet text button under a field, for switching how it is filled in. */
+.link-btn {
+  display: block;
+  margin-top: 8px;
+  padding: 0;
+  font: inherit;
+  font-size: 12px;
+  color: var(--ink-on-glass-dim);
+  text-shadow: var(--shadow-text);
+  text-decoration: underline;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.link-btn:hover { color: var(--ink-on-glass); }
+
 /* The token fallback: tucked away so the login button reads as the way in. */
 .setup-alt { margin-top: 18px; }
 .setup-alt summary {

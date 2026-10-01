@@ -1,15 +1,33 @@
 /* Onboarding: collect the Canvas origin, request host permission, then either
  * log in through the browser's own Canvas session or verify a pasted access
- * token, and hand control back to the dashboard. */
+ * token, and hand control back to the dashboard.
+ *
+ * The origin comes from a school search when the school directory checks out
+ * (see schools.js), and from a typed address otherwise — including whenever
+ * the directory stops answering partway through. */
 
 import { normalizeOrigin, originPattern, getSelf, CanvasError } from './canvas.js';
+import { searchSchools, schoolSearchWorks } from './schools.js';
 import { saveSettings } from './store.js';
 
 /** How often to look for a finished login while the login window is open. */
 const LOGIN_POLL_MS = 1500;
 
+/** How long to hold the form back for the directory check, so a working
+ *  search appears at once instead of after a flash of the address box. */
+const PROBE_GRACE_MS = 350;
+const SEARCH_DEBOUNCE_MS = 250;
+const MIN_QUERY_LENGTH = 2;
+
 const form = document.getElementById('setup-form');
 const urlInput = document.getElementById('canvas-url');
+const addressField = document.getElementById('address-field');
+const schoolField = document.getElementById('school-field');
+const schoolInput = document.getElementById('school-search');
+const schoolList = document.getElementById('school-list');
+const schoolPicked = document.getElementById('school-picked');
+const toSearchBtn = document.getElementById('to-search');
+const toAddressBtn = document.getElementById('to-address');
 const tokenInput = document.getElementById('canvas-token');
 const tokenLink = document.getElementById('token-link');
 const errorBox = document.getElementById('setup-error');
@@ -23,6 +41,15 @@ const LABELS = new Map([
 
 let onDone = () => {};
 let wired = false;
+
+let mode = 'address';        // 'address' | 'search': which field supplies the origin
+let searchOffered = false;   // the directory passed its check this time round
+let probeRun = 0;            // lets a newer initSetup() retire an older check
+let picked = null;           // { name, origin } chosen from the list
+let results = [];            // what the list is showing
+let active = -1;             // index of the highlighted result
+let searchTimer = 0;
+let searchCall = null;       // AbortController of the lookup in flight
 
 /**
  * @param {object} [opts]
@@ -44,16 +71,227 @@ export function initSetup(callback, { message, origin } = {}) {
       event.preventDefault();
       form.requestSubmit(tokenBtn);
     });
+    wireSchoolSearch();
   }
-  if (origin) urlInput.value = origin.replace(/^https:\/\//, '');
+
+  probeRun++;
+  searchOffered = false;
+  picked = null;
+  schoolInput.value = '';
+  showMode('address');
+
+  if (origin) {
+    // Logging back in to a known Canvas: the address is already right.
+    urlInput.value = origin.replace(/^https:\/\//, '');
+    syncTokenLink();
+    setTimeout(() => connectBtn.focus(), 0);
+    return;
+  }
   syncTokenLink();
-  setTimeout(() => (origin ? connectBtn : urlInput).focus(), 0);
+  offerSchoolSearch();
+}
+
+/* ------------------------------------------------------------------ */
+/*  School search                                                      */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Checks the school directory and, only if it answers properly, offers the
+ * search. Otherwise the address field — the original way in — simply stays.
+ */
+async function offerSchoolSearch() {
+  const run = probeRun;
+  addressField.style.visibility = 'hidden';
+  const probe = schoolSearchWorks();
+  let works = await Promise.race([
+    probe,
+    new Promise((resolve) => setTimeout(resolve, PROBE_GRACE_MS, null)),
+  ]);
+  if (run !== probeRun) return;
+  addressField.style.visibility = '';
+  if (works === false) urlInput.focus();   // hiding the field dropped the focus
+
+  if (works === null) {
+    // Slow check: let people start typing an address in the meantime.
+    urlInput.focus();
+    works = await probe;
+    if (run !== probeRun) return;
+  }
+  if (!works) return;
+
+  searchOffered = true;
+  // Anyone already typing an address is left to finish; they can still switch.
+  if (urlInput.value.trim()) toSearchBtn.hidden = false;
+  else showMode('search');
+}
+
+function wireSchoolSearch() {
+  toSearchBtn.addEventListener('click', () => showMode('search'));
+  toAddressBtn.addEventListener('click', () => {
+    if (picked && !urlInput.value.trim()) {
+      urlInput.value = picked.origin.replace(/^https:\/\//, '');
+    }
+    showMode('address');
+  });
+
+  schoolInput.addEventListener('input', handleSchoolInput);
+  schoolInput.addEventListener('keydown', handleSchoolKey);
+  schoolInput.addEventListener('blur', closeList);
+
+  // mousedown, not click: the input must not lose focus (and close the list)
+  // before the choice lands.
+  schoolList.addEventListener('mousedown', (event) => event.preventDefault());
+  schoolList.addEventListener('click', (event) => {
+    const option = event.target.closest('[role="option"]');
+    if (option) pick(results[Number(option.dataset.index)]);
+  });
+}
+
+/** Swaps which field supplies the origin. */
+function showMode(next) {
+  mode = next;
+  schoolField.hidden = next !== 'search';
+  addressField.hidden = next !== 'address';
+  toSearchBtn.hidden = !(next === 'address' && searchOffered);
+  clearTimeout(searchTimer);
+  searchCall?.abort();
+  closeList();
+  syncTokenLink();
+  setTimeout(() => (next === 'search' ? schoolInput : urlInput).focus(), 0);
+}
+
+function handleSchoolInput() {
+  picked = null;
+  schoolPicked.hidden = true;
+  syncTokenLink();
+
+  clearTimeout(searchTimer);
+  searchCall?.abort();
+  if (schoolInput.value.trim().length < MIN_QUERY_LENGTH) {
+    closeList();
+    return;
+  }
+  searchTimer = setTimeout(runSearch, SEARCH_DEBOUNCE_MS);
+}
+
+async function runSearch() {
+  const call = (searchCall = new AbortController());
+  try {
+    const found = await searchSchools(schoolInput.value.trim(), call.signal);
+    if (call.signal.aborted) return;
+    renderResults(found);
+  } catch {
+    if (call.signal.aborted) return;
+    // The directory failed after passing its check: back to typing the address.
+    searchOffered = false;
+    showMode('address');
+    showError("School search isn't available right now. Enter your Canvas address instead.");
+  }
+}
+
+function handleSchoolKey(event) {
+  const open = isListOpen() && results.length > 0;
+  if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+    if (!open) return;
+    event.preventDefault();
+    const step = event.key === 'ArrowDown' ? 1 : -1;
+    setActive((active + step + results.length) % results.length);
+  } else if (event.key === 'Enter' && open && active >= 0) {
+    // Choosing is not submitting: the next Enter connects.
+    event.preventDefault();
+    pick(results[active]);
+  } else if (event.key === 'Escape' && isListOpen()) {
+    event.preventDefault();
+    closeList();
+  }
+}
+
+function renderResults(found) {
+  results = found;
+  active = -1;
+  schoolList.replaceChildren();
+
+  if (!found.length) {
+    const none = document.createElement('li');
+    none.className = 'combo-empty';
+    none.setAttribute('role', 'presentation');
+    none.textContent = 'No schools found. Check the spelling, or enter your address instead.';
+    schoolList.append(none);
+  }
+  found.forEach((school, i) => {
+    const li = document.createElement('li');
+    li.id = `school-option-${i}`;
+    li.className = 'combo-option';
+    li.dataset.index = String(i);
+    li.setAttribute('role', 'option');
+    li.setAttribute('aria-selected', 'false');
+    li.textContent = school.name;
+    const host = document.createElement('small');
+    host.textContent = hostOf(school.origin);
+    li.append(host);
+    schoolList.append(li);
+  });
+
+  schoolList.togglePopover(true);
+  schoolInput.setAttribute('aria-expanded', 'true');
+  if (found.length) setActive(0);
+}
+
+function setActive(index) {
+  active = index;
+  schoolList.querySelectorAll('[role="option"]').forEach((li, i) => {
+    li.setAttribute('aria-selected', String(i === index));
+    if (i === index) li.scrollIntoView({ block: 'nearest' });
+  });
+  schoolInput.setAttribute('aria-activedescendant', `school-option-${index}`);
+}
+
+/* The list is a manual popover (see .combo-list in newtab.css): shown and
+ * hidden only from here, never light-dismissed behind our back. */
+function isListOpen() {
+  return schoolList.matches(':popover-open');
+}
+
+function closeList() {
+  schoolList.togglePopover(false);
+  schoolInput.setAttribute('aria-expanded', 'false');
+  schoolInput.removeAttribute('aria-activedescendant');
+  results = [];
+  active = -1;
+}
+
+function pick(school) {
+  if (!school) return;
+  clearTimeout(searchTimer);
+  searchCall?.abort();
+  picked = school;
+  schoolInput.value = school.name;
+  schoolPicked.textContent = hostOf(school.origin);
+  schoolPicked.hidden = false;
+  closeList();
+  hideError();
+  syncTokenLink();
+  connectBtn.focus();
+}
+
+/** The origin the form currently stands for.
+ *  @throws {Error} with a message fit to show, when there is none yet */
+function currentOrigin() {
+  if (mode === 'search') {
+    if (!picked) throw new Error('Choose your school from the list.');
+    return picked.origin;
+  }
+  return normalizeOrigin(urlInput.value);
+}
+
+function hostOf(origin) {
+  return origin.replace(/^https:\/\//, '');
 }
 
 /** Offer a direct link to the token page once the address looks usable. */
 function syncTokenLink() {
   try {
-    const origin = normalizeOrigin(urlInput.value);
+    const origin = currentOrigin();
     tokenLink.href = `${origin}/profile/settings#access_tokens`;
     tokenLink.hidden = false;
   } catch {
@@ -68,10 +306,10 @@ function handleSubmit(event) {
 
   let origin;
   try {
-    origin = normalizeOrigin(urlInput.value);
+    origin = currentOrigin();
   } catch (err) {
     showError(err.message);
-    urlInput.focus();
+    (mode === 'search' ? schoolInput : urlInput).focus();
     return;
   }
 
